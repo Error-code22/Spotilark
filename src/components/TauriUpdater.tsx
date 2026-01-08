@@ -1,5 +1,7 @@
 'use client';
 
+// Commented out Tauri imports to avoid Netlify build failures
+/*
 import { useEffect, useState } from 'react';
 import { check } from '@tauri-apps/plugin-updater';
 import { ask, message } from '@tauri-apps/plugin-dialog';
@@ -73,4 +75,9 @@ export function TauriUpdater() {
     };
 
     return null; // This component doesn't render anything
+}
+*/
+
+export function TauriUpdater() {
+    return null;
 }

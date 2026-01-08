@@ -33,9 +33,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { clearLyricsCache, getLyricsCacheSize } from "@/lib/lrclib";
-import { check } from '@tauri-apps/plugin-updater';
-import { message as tauriMessage, ask } from '@tauri-apps/plugin-dialog';
-import { relaunch } from '@tauri-apps/plugin-process';
+// import { check } from '@tauri-apps/plugin-updater';
+// import { message as tauriMessage, ask } from '@tauri-apps/plugin-dialog';
+// import { relaunch } from '@tauri-apps/plugin-process';
 
 const SettingRow = ({ title, description, control }: { title: string; description?: string; control: React.ReactNode }) => (
   <div className="flex items-center justify-between py-4">
@@ -485,6 +485,8 @@ const SettingsPage = () => {
               variant="outline"
               className="flex-1"
               onClick={async () => {
+                alert('Update checks are only available in the standalone desktop app.');
+                /* 
                 if (typeof window === 'undefined' || !(window as any).__TAURI_INTERNALS__) {
                   await alert('Update checks are only available in the desktop app.');
                   return;
@@ -508,6 +510,7 @@ const SettingsPage = () => {
                   console.error(e);
                   await tauriMessage('Failed to check for updates.', { title: 'Error', kind: 'error' });
                 }
+                */
               }}
             >
               Check for Updates
