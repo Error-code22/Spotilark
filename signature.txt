@@ -1,0 +1,11 @@
+Signing without password.
+
+Deriving a key from the password and decrypting the secret key... done
+
+Your file was signed successfully, You can find the signature here:
+C:\Users\Droner-Inventer\Desktop\spotilark-site\spotilark-web\src-tauri\target\release\bundle\msi\spotilark_0.1.4_x64_en-US.msi.zip.sig
+
+Public signature:
+dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUZHd3VjFyZWw0ejE3d1hpSkU3Wnd2SGFZb3pWTVh6YTA4RWRaTFdxcmZpQUN1Y0VqcDIydzhMSU9kZkhNbEJLWGRLWW9wRmFrWXZETEdhY0tXaDgwdWUxYTlhTzVrRGdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzY3MDQwMjU2CWZpbGU6c3BvdGlsYXJrXzAuMS40X3g2NF9lbi1VUy5tc2kuemlwClpzWG9HNTU4UDhVaVRzUWk0MFpPN1pkNlZNdnQ1WitLbTlCMWhoaW5kUUsxQ1FCWkVHTmluYXBxUU9jU3R0V1N4cWp3UG5HNk5uZEd6YXpVbnpMcUNBPT0K
+
+Make sure to include this into the signature field of your update server.

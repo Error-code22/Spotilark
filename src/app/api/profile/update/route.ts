@@ -18,14 +18,31 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { username, bio, avatar_url } = await req.json();
+        const { username, bio, avatar_seed, avatar_rolls_remaining, avatar_last_refresh } = await req.json();
+        const trimmedUsername = username?.trim();
 
-        // 1. Update User Metadata (Supabase Auth)
+        // 1. Check if username is already taken by another user
+        if (trimmedUsername) {
+            const { data: existingUser, error: checkError } = await supabase
+                .from('user_profiles')
+                .select('id')
+                .eq('username', trimmedUsername)
+                .neq('id', user.id)
+                .maybeSingle();
+
+            if (existingUser) {
+                return NextResponse.json({ error: 'Username is already taken' }, { status: 400 });
+            }
+        }
+
+        // 2. Update User Metadata (Supabase Auth) - username, bio, avatar seed, and roll data
         const { error: metadataError } = await supabase.auth.updateUser({
             data: {
-                username: username?.trim(),
+                username: trimmedUsername,
                 bio: bio?.trim(),
-                avatar_url: avatar_url
+                avatar_seed: avatar_seed || user.id,
+                avatar_rolls_remaining: avatar_rolls_remaining !== undefined ? avatar_rolls_remaining : 11,
+                avatar_last_refresh: avatar_last_refresh || new Date().toISOString()
             }
         });
 
@@ -34,27 +51,19 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to update user metadata', message: metadataError.message }, { status: 500 });
         }
 
-        // 2. Update user_profiles table
-        const { error: profileError } = await supabase
-            .from('user_profiles')
-            .upsert({
+        console.log('[Profile Update] SUCCESS - Profile updated for user:', user.id);
+
+        return NextResponse.json({
+            success: true,
+            user: {
                 id: user.id,
-                username: username?.trim(),
-                bio: bio?.trim(),
-                profile_picture_url: avatar_url,
-                updated_at: new Date().toISOString()
-            }, {
-                onConflict: 'id'
-            });
-
-        if (profileError) {
-            console.error('Error updating user_profiles:', profileError);
-            // We don't necessarily want to fail the whole request if the table update fails but metadata succeeded,
-            // but in this app, the table is important for social features.
-            return NextResponse.json({ error: 'Failed to update profile record', message: profileError.message }, { status: 500 });
-        }
-
-        return NextResponse.json({ success: true, user: { id: user.id, username, bio, avatar_url } });
+                username: trimmedUsername,
+                bio,
+                avatar_seed,
+                avatar_rolls_remaining,
+                avatar_last_refresh
+            }
+        });
 
     } catch (error: any) {
         console.error('Unexpected error in profile update:', error);

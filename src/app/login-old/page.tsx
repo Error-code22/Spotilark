@@ -1,50 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { signInWithEmailAndPassword } from '@/lib/auth-actions';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const router = useRouter();
-  
-  // Define the initial state with proper type
-  const initialState = {
-    error: '',
-    success: false,
-  };
-  
-  const [state, formAction] = useActionState(signInWithEmailAndPassword, initialState);
-
-  // Check if the login was successful and redirect if needed
-  useEffect(() => {
-    // Look for a success indicator in the state
-    if (state?.success) {
-      // Redirect to home page on successful login
-      router.push('/');
-      router.refresh(); // Refresh to ensure UI updates
-    }
-  }, [state, router]);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [state, setState] = useState<{ error: string | null; success: boolean }>({
+    error: null,
+    success: false,
+  });
+  const router = useRouter();
 
-  // Handle form submission to track loading state
-  const handleSubmit = () => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsSubmitting(true);
-  };
+    setState({ error: null, success: false });
 
-  // Reset loading state when state changes (form completes)
-  useEffect(() => {
-    if (state) {
+    const formData = new FormData(e.currentTarget);
+
+    try {
+      const result = await signInWithEmailAndPassword(null, formData);
+      setState(result as any);
+
+      if (result.success) {
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err: any) {
+      setState({ error: 'An unexpected error occurred during login.', success: false });
+    } finally {
       setIsSubmitting(false);
     }
-  }, [state]);
+  };
 
   return (
     <div className='flex items-center justify-center min-h-screen bg-background'>
@@ -55,7 +49,7 @@ export default function LoginPage() {
             Enter your email below to login to your account.
           </p>
         </div>
-        <form action={formAction} onSubmit={handleSubmit}>
+        <form onSubmit={handleLogin}>
           <div className='grid gap-4 mb-4'>
             <div className='grid gap-2'>
               <Label htmlFor='email'>Email</Label>
@@ -84,7 +78,7 @@ export default function LoginPage() {
                   name='password'
                   type={showPassword ? 'text' : 'password'}
                   required
-                  className='pr-10' // Add padding to the right for the icon
+                  className='pr-10'
                 />
                 <Button
                   type='button'
@@ -101,7 +95,7 @@ export default function LoginPage() {
                 </Button>
               </div>
             </div>
-            {state?.error && !state?.success && (
+            {state?.error && (
               <div className={`text-sm ${state.error.includes('confirmation') ? 'text-blue-500' : 'text-red-500'}`}>
                 {state.error}
               </div>

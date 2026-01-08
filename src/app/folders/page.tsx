@@ -7,27 +7,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Folder, HardDrive, Cloud, Music, Play, ChevronLeft, Globe, ArrowRight, Monitor, Download } from "lucide-react";
 import Link from "next/link";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import dynamic from 'next/dynamic';
-import { createClient } from '@/lib/supabase/client';
-import { useSearchParams } from 'next/navigation';
-
 import { usePlayer } from '@/context/PlayerContext';
 import { Track } from '@/lib/data';
 import { cn } from '@/lib/utils';
-
-const DynamicMusicUploadForm = dynamic(() => import("@/components/MusicUploadForm"), { ssr: false });
 
 type View = 'dashboard' | 'local' | 'cloud' | 'stream';
 
 export default function FoldersPage() {
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [activeTab, setActiveTab] = useState('browse');
   const internalStorageInputRef = useRef<HTMLInputElement>(null);
 
-  const { playTrack, localLibrary, setLocalLibrary, cloudLibrary, unifiedLibrary } = usePlayer();
+  const { playTrack, localLibrary, addLocalTracks, cloudLibrary, unifiedLibrary } = usePlayer();
 
-  const [localStats, setLocalStats] = useState({ totalDuration: 0, artistCount: 0 });
   const [isScanning, setIsScanning] = useState(false);
   const jsmediatagsRef = useRef<any>(null);
 
@@ -38,15 +29,7 @@ export default function FoldersPage() {
     import('jsmediatags').then(module => {
       jsmediatagsRef.current = module;
     }).catch(error => console.error("Failed to load jsmediatags:", error));
-
-    if (localLibrary.length > 0) {
-      const uniqueArtists = new Set(localLibrary.map(t => t.artist)).size;
-      setLocalStats({
-        totalDuration: localLibrary.length * 210,
-        artistCount: uniqueArtists
-      });
-    }
-  }, [localLibrary]);
+  }, []);
 
   const handleInternalStorageSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -98,7 +81,7 @@ export default function FoldersPage() {
       };
       scannedTracks.push(localTrack);
     }
-    setLocalLibrary((prev: Track[]) => [...prev, ...scannedTracks]);
+    await addLocalTracks(scannedTracks, audioFiles);
     setIsScanning(false);
     setActiveView('local');
   };
@@ -107,70 +90,82 @@ export default function FoldersPage() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-3xl font-black tracking-tight">Library Sources</h2>
-          <p className="text-muted-foreground font-medium">Categorized view of all your music</p>
+          <h2 className="text-3xl font-black tracking-tight">Folders</h2>
+          <p className="text-muted-foreground font-medium">Browse files physically stored on this device</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* LOCAL MUSIC FOLDER */}
         <SourceFolder
           icon={Monitor}
-          title="Local Music"
+          title="Internal Storage"
           description={`${localLibrary.length} tracks found on this device`}
           color="amber"
           count={localLibrary.length}
           onClick={() => setActiveView('local')}
         />
 
-        {/* CLOUD STORAGE FOLDER */}
         <SourceFolder
           icon={Cloud}
-          title="Your Clouds"
-          description={`${cloudLibrary.length} tracks uploaded to storage`}
+          title="Cloud Library"
+          description={`${cloudLibrary.length} tracks synced to account`}
           color="blue"
           count={cloudLibrary.length}
           onClick={() => setActiveView('cloud')}
         />
 
-        {/* STREAMING FOLDER */}
         <SourceFolder
           icon={Globe}
-          title="Downloads & Cache"
-          description={`${streamLibrary.length} tracks cached from search`}
+          title="Cache & Temp"
+          description={`${streamLibrary.length} temporary tracks`}
           color="emerald"
           count={streamLibrary.length}
           onClick={() => setActiveView('stream')}
         />
-
-        {/* EXTERNAL SOURCE (Placeholder for things like Google Drive) */}
-        <Link href="/folders/add-cloud-service" className="lg:mt-0">
-          <Card className="h-full bg-muted/20 border-2 border-dashed border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-3xl group cursor-pointer">
-            <CardContent className="h-full p-8 flex flex-col items-center justify-center text-center gap-4">
-              <div className="p-4 rounded-2xl bg-background/50 text-muted-foreground group-hover:text-primary transition-colors">
-                <Folder className="h-8 w-8" />
-              </div>
-              <div>
-                <p className="font-bold">Add External Source</p>
-                <p className="text-xs text-muted-foreground">Google Drive, Dropbox, etc.</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
       </div>
 
-      {/* RECENT ACTIVITY / STATS */}
-      <div className="mt-12 p-8 rounded-3xl bg-primary/5 border border-primary/10">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-primary/10 rounded-xl">
-            <HardDrive className="text-primary h-6 w-6" />
+      <div className="mt-12 p-8 rounded-[40px] bg-card/40 border-none shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-primary/10 transition-colors" />
+
+        <div className="flex flex-col gap-8 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-primary/10 rounded-2xl">
+              <HardDrive className="text-primary h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter">Cloud Storage Health</h3>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest opacity-60">Global Infrastructure Scale</p>
+            </div>
           </div>
-          <h3 className="text-xl font-black">Storage Health</h3>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-          <StatBox label="Total Library" value={unifiedLibrary.length} suffix="Tracks" />
-          <StatBox label="Offline Ready" value={localLibrary.length + streamLibrary.length} suffix="Tracks" />
-          <StatBox label="Artists" value={new Set(unifiedLibrary.map(t => t.artist)).size} suffix="Found" />
+
+          <div className="space-y-4">
+            <div className="flex justify-between items-end">
+              <div className="flex flex-baseline gap-2">
+                <span className="text-4xl font-black tracking-tighter">{(cloudLibrary.length * 5 / 1024).toFixed(2)}</span>
+                <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">GB Used</span>
+              </div>
+              <span className="text-xs font-black text-muted-foreground/40">LIMIT: 50.00 GB</span>
+            </div>
+
+            <div className="h-3 w-full bg-primary/5 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="h-full bg-gradient-to-r from-primary/40 via-primary to-primary/80 rounded-full transition-all duration-1000 shadow-[0_0_15px_var(--primary)]"
+                style={{ width: `${Math.min(100, (cloudLibrary.length * 5 / (50 * 1024)) * 100)}%` }}
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em]">
+              <span>0 GB</span>
+              <span>25 GB</span>
+              <span>50 GB</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 pt-4 border-t border-white/5">
+            <StatBox label="Total Library" value={unifiedLibrary.length} suffix="Tracks" />
+            <StatBox label="Offline Ready" value={localLibrary.length + streamLibrary.length} suffix="Tracks" />
+            <StatBox label="Artists" value={new Set(unifiedLibrary.map(t => t.artist)).size} suffix="Found" />
+          </div>
         </div>
       </div>
     </div>
@@ -206,7 +201,7 @@ export default function FoldersPage() {
               className="rounded-full font-bold gap-2"
             >
               <Download className="h-4 w-4" />
-              Scan More
+              Scan Folders
             </Button>
           )}
           {tracks.length > 0 && (
@@ -262,10 +257,7 @@ export default function FoldersPage() {
             {icon === Cloud && <Cloud className="h-12 w-12 opacity-20" />}
             {icon === Globe && <Globe className="h-12 w-12 opacity-20" />}
           </div>
-          <div className="max-w-xs space-y-2">
-            <p className="font-black text-xl text-foreground/80">{emptyMsg}</p>
-            <p className="text-sm font-medium">This category currently has no tracks in your library.</p>
-          </div>
+          <p className="font-black text-xl text-foreground/80">{emptyMsg}</p>
           {type === 'local' && (
             <Button
               onClick={() => internalStorageInputRef.current?.click()}
@@ -275,12 +267,13 @@ export default function FoldersPage() {
             </Button>
           )}
           {type === 'cloud' && (
-            <Button
-              onClick={() => setActiveTab('upload')}
-              className="rounded-full px-8 font-bold"
-            >
-              Upload Music
-            </Button>
+            <Link href="/upload">
+              <Button
+                className="rounded-full px-8 font-bold"
+              >
+                Go to Upload
+              </Button>
+            </Link>
           )}
         </div>
       )}
@@ -299,35 +292,12 @@ export default function FoldersPage() {
           className="hidden"
         />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex w-fit mb-12 p-1 bg-muted/30 rounded-2xl">
-            <TabsTrigger
-              value="browse"
-              className="px-8 py-3 text-sm font-bold rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-xl transition-all"
-            >
-              Source Browser
-            </TabsTrigger>
-            <TabsTrigger
-              value="upload"
-              className="px-8 py-3 text-sm font-bold rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-xl transition-all"
-            >
-              Cloud Upload
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="browse">
-            {activeView === 'dashboard' && renderDashboard()}
-            {activeView === 'local' && renderFileView('local', 'Local Music', localLibrary, 'No local files scanned yet.', Monitor)}
-            {activeView === 'cloud' && renderFileView('cloud', 'Your Clouds', cloudLibrary, 'No cloud uploads found.', Cloud)}
-            {activeView === 'stream' && renderFileView('stream', 'Downloads & Cache', streamLibrary, 'No cached tracks found.', Globe)}
-          </TabsContent>
-
-          <TabsContent value="upload">
-            <div className="max-w-4xl mx-auto">
-              <DynamicMusicUploadForm />
-            </div>
-          </TabsContent>
-        </Tabs>
+        <div className="max-w-6xl mx-auto">
+          {activeView === 'dashboard' && renderDashboard()}
+          {activeView === 'local' && renderFileView('local', 'Internal Storage', localLibrary, 'No local files scanned yet.', Monitor)}
+          {activeView === 'cloud' && renderFileView('cloud', 'Cloud Library', cloudLibrary, 'No cloud uploads found.', Cloud)}
+          {activeView === 'stream' && renderFileView('stream', 'Cache & Temp', streamLibrary, 'No cached tracks found.', Globe)}
+        </div>
       </div>
     </SpotilarkLayout>
   );

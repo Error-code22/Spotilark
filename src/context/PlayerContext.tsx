@@ -14,6 +14,8 @@ import { useSettings } from "./SettingsContext";
 import { fetchLyrics } from "@/lib/lyrics";
 import { getCachedTrack, cacheTrack } from "@/lib/cache-utils";
 import { updatePresence } from "@/lib/presence-utils";
+import { resolveYouTubeStream } from "@/lib/youtube-utils";
+import { resolveTelegramLink } from "@/lib/telegram-client";
 
 type RepeatMode = "off" | "all" | "one";
 
@@ -52,7 +54,7 @@ interface PlayerContextType {
   isLyricsViewOpen: boolean;
   toggleLyricsView: () => void;
   localLibrary: Track[];
-  setLocalLibrary: React.Dispatch<React.SetStateAction<Track[]>>;
+  addLocalTracks: (tracks: Track[], files?: File[]) => Promise<void>;
   cloudLibrary: Track[];
   unifiedLibrary: Track[];
 }
@@ -64,17 +66,63 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   tracks,
   refetch,
 }) => {
+  useEffect(() => {
+    console.log("%c Spotilark Playback Fix V1.8 (Tauri HTTP) Active ", "background: #222; color: #bada55; font-size: 16px;");
+  }, []);
   const [cloudLibrary, setCloudLibrary] = useState<Track[]>([]);
   const [localLibrary, setLocalLibrary] = useState<Track[]>([]);
   const [trackQueue, setTrackQueue] = useState<Track[]>([]);
   const [isLyricsViewOpen, setIsLyricsViewOpen] = useState(false);
 
+  // Load local library from storage
+  useEffect(() => {
+    const saved = localStorage.getItem('spotilark-local-library');
+    if (saved) {
+      try {
+        setLocalLibrary(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load local library", e);
+      }
+    }
+  }, []);
+
+  const addLocalTracks = useCallback(async (newTracks: Track[], files?: File[]) => {
+    // 1. Immediately cache blood for files if provided
+    if (files && files.length > 0) {
+      console.log(`[Player] Caching ${files.length} local files...`);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const track = newTracks[i];
+        if (track && file) {
+          await cacheTrack(track.id, file);
+        }
+      }
+    }
+
+    setLocalLibrary(prev => {
+      const updated = [...prev, ...newTracks];
+      // Filter out potential duplicates based on ID
+      const unique = Array.from(new Map(updated.map(t => [t.id, t])).values());
+      localStorage.setItem('spotilark-local-library', JSON.stringify(unique));
+      return unique;
+    });
+  }, []);
+
   // Derive Unified Library
   const [unifiedLibrary, setUnifiedLibrary] = useState<Track[]>([]);
 
   useEffect(() => {
-    // Label cloud tracks
-    const cloudWithLegacy = tracks.map(t => ({ ...t, storage_type: 'cloud' as const }));
+    // Label tracks correctly without overwriting valid storage_type
+    const cloudWithLegacy = tracks.map(t => {
+      let type = t.storage_type;
+      if (!type) {
+        const isYoutube = (typeof t.id === 'string' && t.id.startsWith('yt-')) ||
+          (t.source_url && t.source_url.includes('stream/youtube')) ||
+          (t.source_url && t.source_url.includes('youtube.com'));
+        type = isYoutube ? 'stream' : 'cloud';
+      }
+      return { ...t, storage_type: type as any };
+    });
     setCloudLibrary(cloudWithLegacy);
   }, [tracks]);
 
@@ -386,13 +434,81 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             cacheTimerRef.current = null;
           }
 
-          let audioSrc = currentTrack.source_url;
+          let audioSrc = currentTrack.source_url || '';
+          console.log(`[Player] Track: ${currentTrack.title} | Storage: ${currentTrack.storage_type} | ID: ${currentTrack.id}`);
+          console.log(`[Player] Initial Source:`, audioSrc);
 
-          // Add quality parameter to stream URLs
+          // Handle YouTube stream resolution
           if (currentTrack.storage_type === 'stream') {
-            const urlObj = new URL(audioSrc, window.location.href);
-            urlObj.searchParams.set('q', streamingQuality);
-            audioSrc = urlObj.pathname + urlObj.search;
+            let trackId = '';
+            if (typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-')) {
+              trackId = currentTrack.id.replace('yt-', '');
+            } else if (currentTrack.source_url && currentTrack.source_url.includes('v=')) {
+              // Extract from /api/stream/youtube?v=... or similar
+              try {
+                const url = new URL(currentTrack.source_url, window.location.href);
+                trackId = url.searchParams.get('v') || '';
+              } catch (e) {
+                // Fallback extraction
+                const match = currentTrack.source_url.match(/[?&]v=([^&]+)/);
+                if (match) trackId = match[1];
+              }
+            }
+
+            if (trackId) {
+              // Check if we already have a resolved URL in cache
+              if (streamCacheRef.current.has(currentTrack.id)) {
+                audioSrc = streamCacheRef.current.get(currentTrack.id)!;
+                console.log(`[Player] Using cached stream URL for: ${currentTrack.title}`);
+              } else {
+                // Resolve it now
+                try {
+                  console.log(`[Player] Resolving stream for ID: ${trackId} (${currentTrack.title})`);
+                  const resolvedUrl = await resolveYouTubeStream(trackId, streamingQuality);
+                  if (resolvedUrl) {
+                    audioSrc = resolvedUrl;
+                    streamCacheRef.current.set(currentTrack.id, resolvedUrl);
+                    console.log(`[Player] Resolution SUCCESS for: ${currentTrack.title}`);
+                  } else {
+                    throw new Error("Could not resolve stream");
+                  }
+                } catch (e) {
+                  console.error("Stream resolution failed at play time", e);
+                }
+              }
+            }
+          }
+
+          // Handle Telegram (Cloud) stream resolution
+          if (currentTrack.storage_type === 'cloud' && currentTrack.source_url && currentTrack.source_url.includes('storage/stream')) {
+            // Extract file_id from /api/storage/stream?file_id=...
+            let fileId = '';
+            try {
+              const url = new URL(currentTrack.source_url, window.location.href);
+              fileId = url.searchParams.get('file_id') || '';
+            } catch (e) {
+              const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
+              if (match) fileId = match[1];
+            }
+
+            if (fileId) {
+              if (streamCacheRef.current.has(currentTrack.id)) {
+                audioSrc = streamCacheRef.current.get(currentTrack.id)!;
+                console.log(`[Player] Using cached Telegram URL for: ${currentTrack.title}`);
+              } else {
+                try {
+                  console.log(`[Player] Resolving Telegram file: ${currentTrack.title}`);
+                  const resolvedUrl = await resolveTelegramLink(fileId);
+                  if (resolvedUrl) {
+                    audioSrc = resolvedUrl;
+                    streamCacheRef.current.set(currentTrack.id, resolvedUrl);
+                    console.log(`[Player] Telegram Resolution SUCCESS`);
+                  }
+                } catch (e) {
+                  console.error("Telegram resolution failed", e);
+                }
+              }
+            }
           }
 
           // Presence Update
@@ -430,12 +546,39 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                   const doubleCheck = await getCachedTrack(currentTrack.id);
                   if (doubleCheck) return;
 
-                  const urlObj = new URL(currentTrack.source_url, window.location.href);
-                  if (currentTrack.storage_type === 'stream') {
-                    urlObj.searchParams.set('q', downloadQuality);
+                  console.log(`[Player] Background caching: ${currentTrack.title}`);
+                  let finalUrl = currentTrack.source_url;
+
+                  // Use resolved URLs for caching
+                  if (streamCacheRef.current.has(currentTrack.id)) {
+                    finalUrl = streamCacheRef.current.get(currentTrack.id)!;
+                  } else {
+                    if (currentTrack.storage_type === 'stream') {
+                      const trackId = typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-') ?
+                        currentTrack.id.replace('yt-', '') : null;
+                      if (trackId) {
+                        const resolved = await resolveYouTubeStream(trackId, streamingQuality);
+                        if (resolved) finalUrl = resolved;
+                      }
+                    } else if (currentTrack.storage_type === 'cloud' && currentTrack.source_url?.includes('storage/stream')) {
+                      const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
+                      if (match) {
+                        const resolved = await resolveTelegramLink(match[1]);
+                        if (resolved) finalUrl = resolved;
+                      }
+                    }
                   }
-                  const response = await fetch(urlObj.toString());
+
+                  if (!finalUrl) return;
+
+                  const response = await fetch(finalUrl);
                   if (response.ok) {
+                    const contentType = response.headers.get('Content-Type');
+                    if (contentType && contentType.includes('text/html')) {
+                      console.warn(`[Player] Cacher received HTML for ${currentTrack.title}. Skipping.`);
+                      return;
+                    }
+
                     const blob = await response.blob();
                     await cacheTrack(currentTrack.id, blob);
                     console.log(`Track ${currentTrack.title} cached successfully!`);
@@ -447,10 +590,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             }
           }
 
-          const absoluteSrc = new URL(audioSrc, window.location.href).href;
+          // Normalize and check if we actually need to update the src.
+          // For blobs, the browser sometimes prepends the origin.
+          let absoluteSrc = '';
+          try {
+            absoluteSrc = new URL(audioSrc, window.location.href).href;
+          } catch (e) {
+            absoluteSrc = audioSrc;
+          }
 
-          if (audio.src !== absoluteSrc) {
+          const currentAudioSrc = audio.src;
+          const needsUpdate = (audio as any)._lastSetId !== currentTrack.id ||
+            (currentAudioSrc !== absoluteSrc && currentAudioSrc !== audioSrc);
+
+          if (needsUpdate) {
+            console.log(`[Player] Updating Audio Source:`, audioSrc);
             audio.src = audioSrc;
+            (audio as any)._lastSetId = currentTrack.id;
             audio.playbackRate = playbackSpeed;
             setDuration(currentTrack.duration || 0);
 
@@ -459,6 +615,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             } else {
               audio.volume = volume;
             }
+
+            // Re-bind error handler for more details
+            audio.onerror = (e) => {
+              console.error(`[Player] Playback Error for ${currentTrack.title}:`, audio.error);
+            };
           }
 
           if (isPlaying) {
@@ -566,16 +727,42 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       const nextIndex = (currentTrackIndex + 1) % trackQueue.length;
       const nextTrack = trackQueue[nextIndex];
 
-      if (nextTrack && nextTrack.storage_type === 'stream' && !streamCacheRef.current.has(nextTrack.id)) {
-        try {
-          console.log(`[Player] Pre-fetching stream for: ${nextTrack.title}`);
-          const response = await fetch(`/api/stream/youtube?v=${nextTrack.id.replace('yt-', '')}`);
-          // We don't need the body, just hitting the endpoint pre-resolves it in the server cache (if any)
-          // Or better: the browser might hit it. 
-          // Actually, our API doesn't cache. 
-          // Let's modify the API or just pre-resolve in the context.
-        } catch (e) {
-          console.error("Prefetch failed", e);
+      if (nextTrack && !streamCacheRef.current.has(nextTrack.id)) {
+        // Prefetch YouTube
+        if (nextTrack.storage_type === 'stream') {
+          try {
+            console.log(`[Player] Pre-fetching YouTube for: ${nextTrack.title}`);
+            const trackId = typeof nextTrack.id === 'string' && nextTrack.id.startsWith('yt-') ?
+              nextTrack.id.replace('yt-', '') :
+              (nextTrack.source_url ? new URL(nextTrack.source_url, window.location.href).searchParams.get('v') : null);
+
+            if (trackId) {
+              const resolvedUrl = await resolveYouTubeStream(trackId, streamingQuality);
+              if (resolvedUrl) {
+                streamCacheRef.current.set(nextTrack.id, resolvedUrl);
+                console.log(`[Player] Pre-fetch SUCCESS (YouTube)`);
+              }
+            }
+          } catch (e) {
+            console.error("YouTube prefetch failed", e);
+          }
+        }
+        // Prefetch Telegram
+        else if (nextTrack.storage_type === 'cloud' && nextTrack.source_url && nextTrack.source_url.includes('storage/stream')) {
+          try {
+            console.log(`[Player] Pre-fetching Telegram for: ${nextTrack.title}`);
+            const url = new URL(nextTrack.source_url, window.location.href);
+            const fileId = url.searchParams.get('file_id');
+            if (fileId) {
+              const resolvedUrl = await resolveTelegramLink(fileId);
+              if (resolvedUrl) {
+                streamCacheRef.current.set(nextTrack.id, resolvedUrl);
+                console.log(`[Player] Pre-fetch SUCCESS (Telegram)`);
+              }
+            }
+          } catch (e) {
+            console.error("Telegram prefetch failed", e);
+          }
         }
       }
     };
@@ -601,6 +788,41 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       play(prevIndex);
     }
   }, [currentTrackIndex, trackQueue.length, play]);
+
+  /*
+   * Keyboard Shortcuts
+   * Space: Toggle Play/Pause
+   * N: Next Track
+   * P: Previous Track
+   * M: Mute
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault(); // Prevent scrolling
+        togglePlayPause();
+      } else if (e.code === 'KeyN') {
+        playNext();
+      } else if (e.code === 'KeyP') {
+        playPrev();
+      } else if (e.code === 'KeyM') {
+        setVolume((prev) => (prev > 0 ? 0 : 0.5)); // Mute or restore to 50%
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlayPause, playNext, playPrev]);
 
   const handleSeek = (value: number) => {
     if (audioRef.current) {
@@ -853,7 +1075,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     isLyricsViewOpen,
     toggleLyricsView,
     localLibrary,
-    setLocalLibrary,
+    addLocalTracks,
     cloudLibrary,
     unifiedLibrary,
   };

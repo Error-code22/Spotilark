@@ -110,7 +110,15 @@ export async function POST(req: NextRequest) {
         // Use the Telegram photo stream if available, otherwise fallback to the provided cover URL
         const finalCoverUrl = coverFileId ? `/api/storage/stream?file_id=${coverFileId}` : cover;
 
-        const { data, error } = await adminClient.from('tracks').insert({
+        if (!audioStreamUrl) {
+            throw new Error("Cannot import: Audio stream failed to process or upload.");
+        }
+
+        console.log(`[Import] Finalizing database record for user: ${user.id}`);
+
+        const trackRecord: any = {
+            user_id: user.id,
+            created_by: user.id, // satisfy both potential column names
             title,
             artist: artist || 'Unknown Artist',
             album: album || 'YouTube',
@@ -119,31 +127,32 @@ export async function POST(req: NextRequest) {
             video_url: videoStreamUrl,
             cover: finalCoverUrl,
             duration: 0,
-            user_id: user.id
-        }).select().single();
+            lyrics: null
+        };
+
+        console.log(`[Import] Attempting DB insert for user: ${user.id}`);
+
+        // Try with authenticated client first (best practice)
+        const { data, error } = await authClient.from('tracks').insert([trackRecord]).select().single();
 
         if (error) {
-            // Fallback if video_url column is missing
-            if (error.message.includes("column \"video_url\" of relation \"tracks\" does not exist")) {
-                const { data: fbData, error: fbError } = await adminClient.from('tracks').insert({
-                    title,
-                    artist: artist || 'Unknown Artist',
-                    album: album || 'YouTube',
-                    genre: 'Imported',
-                    source_url: audioStreamUrl,
-                    cover: finalCoverUrl,
-                    user_id: user.id
-                }).select().single();
-                if (fbError) throw fbError;
-                return NextResponse.json({ success: true, track: fbData });
+            console.error('[Import] Auth insert failed:', JSON.stringify(error, null, 2));
+
+            // Fallback: Check for video_url missing
+            const isVideoMissing = error.message.includes("column \"video_url\" of relation \"tracks\" does not exist");
+            const finalRecord = isVideoMissing ? (({ video_url, ...r }) => r)(trackRecord) : trackRecord;
+
+            console.log("[Import] Retrying with Admin Client for maximum resilience...");
+            const { data: adminData, error: adminError } = await adminClient.from('tracks').insert([finalRecord]).select().single();
+
+            if (adminError) {
+                console.error('[Import] Admin insert also failed:', JSON.stringify(adminError, null, 2));
+                throw adminError;
             }
-            throw error;
+            return NextResponse.json({ success: true, track: adminData });
         }
 
-        return NextResponse.json({
-            success: true,
-            track: data
-        });
+        return NextResponse.json({ success: true, track: data });
 
     } catch (error: any) {
         console.error("Triple Import Error:", error);

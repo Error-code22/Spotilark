@@ -2,7 +2,7 @@
 
 import { usePlayer } from "@/context/PlayerContext";
 import { Button } from "../ui/button";
-import { X, ChevronLeft, Play, Pause, SkipBack, SkipForward, ListMusic, MoreVertical, Heart, Shuffle, Repeat, Repeat1, MessageSquareQuote, SlidersHorizontal, Headphones } from "lucide-react";
+import { X, ChevronLeft, Play, Pause, SkipBack, SkipForward, ListMusic, MoreVertical, Heart, Shuffle, Repeat, Repeat1, MessageSquareQuote, SlidersHorizontal, Headphones, Music } from "lucide-react";
 import Image from "next/image";
 import { Slider } from "../ui/slider";
 import { motion, AnimatePresence } from "framer-motion";
@@ -36,6 +36,9 @@ export const NowPlaying = () => {
     setSplitAudioEnabled,
     rightAudioUrl,
     setRightAudioUrl,
+    trackQueue,
+    currentTrackIndex,
+    play,
   } = usePlayer();
   const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [isLyricsOpen, setIsLyricsOpen] = useState(false);
@@ -344,14 +347,70 @@ export const NowPlaying = () => {
           className="fixed inset-y-0 right-0 w-80 bg-background z-50 shadow-lg flex flex-col"
         >
           <div className="flex justify-between items-center p-4 border-b">
-            <h3 className="text-lg font-bold">Up Next</h3>
-            <Button variant="ghost" size="icon" onClick={toggleQueue}>
-              <X />
+            <h3 className="text-lg font-black italic uppercase tracking-tighter">Queue</h3>
+            <Button variant="ghost" size="icon" onClick={toggleQueue} className="rounded-full">
+              <X className="h-5 w-5" />
             </Button>
           </div>
-          <div className="p-4 overflow-y-auto">
-            {/* Placeholder for queue items */}
-            <p className="text-muted-foreground">Queue is empty.</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-hide">
+            {/* CURRENTLY PLAYING */}
+            {currentTrack && currentTrackIndex !== null && (
+              <div className="space-y-3">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Now Playing</span>
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-primary/10 border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shadow-lg border border-white/10 shrink-0">
+                    <Image src={currentTrack.cover || '/SL.png'} alt={currentTrack.title} fill className="object-cover" unoptimized />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold truncate text-sm">{currentTrack.title}</p>
+                    <p className="text-xs text-primary/70 truncate font-semibold uppercase tracking-wider">{currentTrack.artist}</p>
+                  </div>
+                  <div className="animate-pulse">
+                    <Music className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* UP NEXT */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Up Next</span>
+              <div className="space-y-1">
+                {trackQueue.length > 0 && currentTrackIndex !== null && trackQueue.length > currentTrackIndex + 1 ? (
+                  trackQueue.slice(currentTrackIndex + 1).map((track, idx) => (
+                    <div
+                      key={`${track.id}-${idx}`}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
+                      onClick={() => play(currentTrackIndex + 1 + idx)}
+                    >
+                      <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/5 shrink-0">
+                        <Image src={track.cover || '/SL.png'} alt={track.title} fill className="object-cover" unoptimized />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold truncate text-[13px] group-hover:text-primary transition-colors">{track.title}</p>
+                        <p className="text-[11px] text-muted-foreground truncate font-medium">{track.artist}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : currentTrackIndex === null && trackQueue.length > 0 ? (
+                  // If no track is playing but queue exists, show first track as "Ready to Play"
+                  <div
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
+                    onClick={() => play(0)}
+                  >
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/5 shrink-0">
+                      <Image src={trackQueue[0].cover || '/SL.png'} alt={trackQueue[0].title} fill className="object-cover" unoptimized />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold truncate text-[13px] group-hover:text-primary transition-colors">{trackQueue[0].title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate font-medium">{trackQueue[0].artist}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic p-2">No more tracks in queue.</p>
+                )}
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

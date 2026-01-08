@@ -5,8 +5,10 @@ import { useUser } from '@/hooks/useUser';
 import { SpotilarkLayout } from '@/components/spotilark-layout';
 import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { AddSongsToPlaylistDialog } from '@/components/add-songs-to-playlist-dialog';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft } from 'lucide-react';
 
 interface Track {
   id: string;
@@ -27,11 +29,12 @@ interface Playlist {
 
 export default function PlaylistDetailsPageWrapper() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [tracksInPlaylist, setTracksInPlaylist] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user, isLoading: userLoading } = useUser();
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export default function PlaylistDetailsPageWrapper() {
       try {
         setLoading(true);
         setError(null);
-        
+
         const supabase = createClient();
 
         let playlistData: Playlist | null = null;
@@ -79,9 +82,9 @@ export default function PlaylistDetailsPageWrapper() {
           if (error) {
             throw new Error(error.message);
           }
-          
+
           playlistData = data;
-          
+
           // Fetch songs in the playlist
           if (data) {
             // First, get the playlist_songs relationship
@@ -89,7 +92,7 @@ export default function PlaylistDetailsPageWrapper() {
               .from('playlist_songs')
               .select('track_id')
               .eq('playlist_id', id);
-            
+
             if (playlistSongsError) {
               console.error("Error fetching playlist songs:", playlistSongsError);
               tracksData = [];
@@ -103,7 +106,7 @@ export default function PlaylistDetailsPageWrapper() {
                   .from('tracks')
                   .select('*')
                   .in('id', trackIds);
-                
+
                 if (tracksError) {
                   console.error("Error fetching track details:", tracksError);
                   tracksData = [];
@@ -169,6 +172,12 @@ export default function PlaylistDetailsPageWrapper() {
   return (
     <SpotilarkLayout>
       <div className="flex-1 p-8 overflow-y-auto pb-24">
+        <div className="mb-4">
+          <Button variant="ghost" className="pl-0 hover:bg-transparent hover:text-primary gap-2" onClick={() => router.back()}>
+            <ChevronLeft className="h-6 w-6" />
+            Back
+          </Button>
+        </div>
         <div className="flex items-center gap-6 mb-8">
           <div className="relative w-48 h-48 flex-shrink-0 rounded-md overflow-hidden shadow-lg">
             <Image

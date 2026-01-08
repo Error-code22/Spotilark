@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "spotilark",
-  "version": "0.1.2",
+  "version": "0.1.8",
   "identifier": "com.spotilark.desktop",
   "build": {
     "frontendDist": "../out",
@@ -40,7 +40,6 @@
         "https://raw.githubusercontent.com/Droner-Inventer/spotilark-site/main/update.json"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENGNzhFOUFENzUwNUMzREQKUldUZHd3VjFyZWw0ejkvb3lpWU4wbWM2Q2pkLytMY0x6cnVCeGE0N0NkZElOdjhSdGovaWNkMHcK"
-    },
-    "dialog": {}
+    }
   }
 }

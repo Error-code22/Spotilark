@@ -17,7 +17,7 @@ import { Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
-export const CreatePlaylistDialog = () => {
+export const CreatePlaylistDialog = ({ onPlaylistCreated }: { onPlaylistCreated?: () => void }) => {
   const [playlistName, setPlaylistName] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const supabase = createClient();
@@ -45,6 +45,9 @@ export const CreatePlaylistDialog = () => {
       setPlaylistName('');
       setIsOpen(false);
       router.refresh();
+      if (onPlaylistCreated) {
+        onPlaylistCreated();
+      }
     }
   };
 

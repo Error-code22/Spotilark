@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
 import { signUpWithEmailAndPassword } from '@/lib/auth-actions';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
@@ -16,14 +15,12 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [passwordMatchError, setPasswordMatchError] = useState(false);
-  const router = useRouter();
-  // Define the initial state with proper type
-  const initialState = {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [state, setState] = useState<{ error: string | null; success: boolean }>({
     error: null,
     success: false,
-  };
-
-  const [state, formAction] = useActionState(signUpWithEmailAndPassword, initialState);
+  });
+  const router = useRouter();
 
   const handlePasswordMatch = (password: string, confirmPassword: string) => {
     if (password !== confirmPassword) {
@@ -33,30 +30,41 @@ export default function SignupPage() {
     }
   };
 
-  // Check if the signup was successful and redirect if needed
-  useEffect(() => {
-    // Look for a success indicator in the state
-    // Since we modified the server action to return success: true on success
-    if (state?.success) {
-      // Redirect to home page on successful signup
-      router.push('/');
-      router.refresh(); // Refresh to ensure UI updates
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.currentTarget);
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      setPasswordMatchError(true);
+      return;
     }
-  }, [state, router]);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    // Check if terms are accepted
+    if (!acceptTerms) {
+      return;
+    }
 
-  // Handle form submission to track loading state
-  const handleSubmit = () => {
     setIsSubmitting(true);
-  };
+    setState({ error: null, success: false });
 
-  // Reset loading state when state changes (form completes)
-  useEffect(() => {
-    if (state) {
+    try {
+      const result = await signUpWithEmailAndPassword(null, formData);
+      setState(result as any);
+
+      if (result.success) {
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err: any) {
+      setState({ error: 'An unexpected error occurred during sign up.', success: false });
+    } finally {
       setIsSubmitting(false);
     }
-  }, [state]);
+  };
 
   return (
     <div className='flex items-center justify-center min-h-screen bg-background'>
@@ -73,27 +81,7 @@ export default function SignupPage() {
             </p>
           </div>
         </div>
-        <form action={formAction} onSubmit={(e) => {
-          // Get the password fields
-          const password = (e.target as HTMLFormElement).password.value;
-          const confirmPassword = (e.target as HTMLFormElement).confirmPassword.value;
-
-          // Check if passwords match
-          if (password !== confirmPassword) {
-            e.preventDefault();
-            setPasswordMatchError(true);
-            return;
-          }
-
-          // Check if terms are accepted
-          if (!acceptTerms) {
-            e.preventDefault();
-            return;
-          }
-
-          // Call handleSubmit if all validations pass
-          handleSubmit();
-        }}>
+        <form onSubmit={handleSignup}>
           <div className='grid gap-4 mb-4'>
             <div className='grid gap-2'>
               <Label htmlFor='email'>Email</Label>
@@ -182,17 +170,7 @@ export default function SignupPage() {
                 </Link>
               </Label>
             </div>
-            {passwordMatchError && (
-              <div className="text-sm text-red-500">
-                Passwords do not match!
-              </div>
-            )}
-            {!acceptTerms && isSubmitting && (
-              <div className="text-sm text-red-500">
-                Please accept the terms and conditions.
-              </div>
-            )}
-            {state?.error && state.error !== null && (
+            {state?.error && (
               <div className={`text-sm ${state.error.includes('confirmation') ? 'text-blue-500' : 'text-red-500'}`}>
                 {state.error}
               </div>

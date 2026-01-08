@@ -16,7 +16,11 @@ import {
   VolumeX,
   Volume1,
   Maximize2,
-  BarChart2
+  BarChart2,
+  Heart,
+  Shuffle,
+  Repeat,
+  Repeat1
 } from "lucide-react";
 import { MarqueeText } from "@/components/ui/marquee-text";
 import {
@@ -45,7 +49,14 @@ export const PlayerControls = () => {
     currentTrack,
     toggleLyricsView,
     isLyricsViewOpen,
-    seekBy
+
+    seekBy,
+    isShuffled,
+    toggleShuffle,
+    repeatMode,
+    toggleRepeat,
+    isTrackLiked,
+    toggleLikeTrack
   } = usePlayer();
 
   /*
@@ -105,6 +116,12 @@ export const PlayerControls = () => {
           isLyricsViewOpen={isLyricsViewOpen}
           toggleLyricsView={toggleLyricsView}
           setIsVolumeHovered={setIsVolumeHovered}
+          isShuffled={isShuffled}
+          toggleShuffle={toggleShuffle}
+          repeatMode={repeatMode}
+          toggleRepeat={toggleRepeat}
+          isTrackLiked={isTrackLiked}
+          toggleLikeTrack={toggleLikeTrack}
         />
       </div>
     </>
@@ -245,7 +262,8 @@ const MobilePlayer = ({
 const DesktopPlayer = ({
   currentTrack, isPlaying, togglePlayPause, toggleNowPlaying,
   playNext, playPrev, currentTime, duration, handleSeek, seekBy,
-  VolumeIcon, volume, handleVolumeChange, isLyricsViewOpen, toggleLyricsView, setIsVolumeHovered
+  VolumeIcon, volume, handleVolumeChange, isLyricsViewOpen, toggleLyricsView, setIsVolumeHovered,
+  isShuffled, toggleShuffle, repeatMode, toggleRepeat, isTrackLiked, toggleLikeTrack
 }: any) => (
   <div className="fixed bottom-0 left-0 right-0 h-[88px] bg-background/90 backdrop-blur-xl border-t border-border z-40 px-4 flex items-center justify-between group select-none">
     {/* LEFT: Track Info (Clickable) */}
@@ -283,6 +301,39 @@ const DesktopPlayer = ({
           </div>
         </div>
       )}
+    </div>
+
+
+
+    {/* NEW CONTROLS: Like, Shuffle, Repeat */}
+    <div className="flex items-center gap-2 px-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={(e) => { e.stopPropagation(); currentTrack && toggleLikeTrack(currentTrack); }}
+        disabled={!currentTrack}
+        className={cn("h-8 w-8 hover:bg-transparent transition-transform hover:scale-110", currentTrack && isTrackLiked(currentTrack.id) ? "text-primary fill-primary" : "text-muted-foreground hover:text-foreground")}
+      >
+        <Heart className={cn("h-5 w-5", currentTrack && isTrackLiked(currentTrack.id) && "fill-current")} />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={(e) => { e.stopPropagation(); toggleShuffle(); }}
+        className={cn("h-8 w-8 hover:bg-transparent transition-colors", isShuffled ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+      >
+        <Shuffle className="h-5 w-5" />
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={(e) => { e.stopPropagation(); toggleRepeat(); }}
+        className={cn("h-8 w-8 hover:bg-transparent transition-colors", repeatMode !== 'off' ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+      >
+        {repeatMode === 'one' ? <Repeat1 className="h-5 w-5" /> : <Repeat className="h-5 w-5" />}
+      </Button>
     </div>
 
     {/* CENTER: Playback Controls & Slider */}
@@ -345,7 +396,7 @@ const DesktopPlayer = ({
         </PopoverContent>
       </Popover>
     </div>
-  </div>
+  </div >
 );
 
 const DevicesPopover = ({ children }: { children: React.ReactNode }) => {

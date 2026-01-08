@@ -33,62 +33,62 @@ export default function PlaylistsPageWrapper() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user, isLoading: userLoading } = useUser();
   const { likedTrackIds } = usePlayer();
 
+  const fetchPlaylistsData = async () => {
+    try {
+      // Don't set loading to true on refresh to avoid flicker, only on initial load if needed
+      if (playlists.length === 0) setLoading(true);
+      setError(null);
+
+      const supabase = createClient();
+
+      // Fetch user's tracks
+      const { data: tracks, error: tracksError } = await supabase
+        .from('tracks')
+        .select('album, cover, id, title, artist')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (tracksError) {
+        throw new Error(tracksError.message);
+      }
+
+      // Fetch user's playlists
+      const { data: userPlaylists, error: playlistsError } = await supabase
+        .from('playlists')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (playlistsError) {
+        throw new Error(playlistsError.message);
+      }
+
+      // Create the special "Playing" playlist with all user's tracks
+      const playingPlaylist: Playlist = {
+        id: 'playing',
+        title: 'Playing',
+        description: 'All your uploaded music',
+        cover: 'https://placehold.co/300x300/1DB954/ffffff.png?text=Playing&font=montserrat', // Custom text cover
+        tracks: tracks || [],
+      };
+
+      // Combine the "Playing" playlist with user's playlists
+      const allPlaylists = [playingPlaylist, ...(userPlaylists || [])];
+      setPlaylists(allPlaylists);
+    } catch (err: any) {
+      console.error('Error fetching playlists:', err);
+      setError(err.message || 'Error loading playlists');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
-
-    const fetchPlaylistsData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const supabase = createClient();
-
-        // Fetch user's tracks
-        const { data: tracks, error: tracksError } = await supabase
-          .from('tracks')
-          .select('album, cover, id, title, artist')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false });
-
-        if (tracksError) {
-          throw new Error(tracksError.message);
-        }
-
-        // Fetch user's playlists
-        const { data: userPlaylists, error: playlistsError } = await supabase
-          .from('playlists')
-          .select('*')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false });
-
-        if (playlistsError) {
-          throw new Error(playlistsError.message);
-        }
-
-        // Create the special "Playing" playlist with all user's tracks
-        const playingPlaylist: Playlist = {
-          id: 'playing',
-          title: 'Playing',
-          description: 'All your uploaded music',
-          cover: tracks?.[0]?.cover || 'https://placehold.co/300x300.png?text=Playing',
-          tracks: tracks || [],
-        };
-
-        // Combine the "Playing" playlist with user's playlists
-        const allPlaylists = [playingPlaylist, ...(userPlaylists || [])];
-        setPlaylists(allPlaylists);
-      } catch (err: any) {
-        console.error('Error fetching playlists:', err);
-        setError(err.message || 'Error loading playlists');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchPlaylistsData();
   }, [user]);
 
@@ -154,7 +154,7 @@ export default function PlaylistsPageWrapper() {
                 </CardContent>
               </Card>
             </Link>
-            <CreatePlaylistDialog />
+            <CreatePlaylistDialog onPlaylistCreated={fetchPlaylistsData} />
           </div>
         </div>
 
@@ -164,7 +164,7 @@ export default function PlaylistsPageWrapper() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-8">
             {playlists.map((playlist) => (
               <Card key={playlist.id} className="hover:bg-accent transition-colors block group">
-                <Link href={`/playlists/${playlist.id}`}>
+                <Link href={`/playlist?id=${playlist.id}`}>
                   <CardHeader className="p-0">
                     <div className="relative aspect-square w-full rounded-t-lg overflow-hidden">
                       <Image

@@ -25,6 +25,15 @@ const caveat = localFont({
 export const metadata: Metadata = {
   title: "Spotilark",
   description: "Your offline and online music player.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Spotilark",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export const viewport = {

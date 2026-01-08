@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Copy, UserPlus, Users, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { createClient } from '@/lib/supabase/client';
+import { generateFriendCode } from '@/lib/friend-code';
 
 export function FriendsSection() {
     const { toast } = useToast();
@@ -16,43 +18,89 @@ export function FriendsSection() {
     const [adding, setAdding] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
+    const supabase = createClient();
 
-    useEffect(() => {
-        fetchFriendCode();
-        fetchFriends();
-    }, []);
-
-    const fetchFriendCode = async () => {
+    const fetchFriendCode = useCallback(async () => {
         try {
             setError(null);
-            const response = await fetch('/api/friends/code');
-            const data = await response.json();
 
-            if (response.ok) {
-                setFriendCode(data.friend_code);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Get user's friend code
+            const { data: profile } = await supabase
+                .from('user_profiles')
+                .select('friend_code')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            if (profile?.friend_code) {
+                setFriendCode(profile.friend_code);
             } else {
-                setError(data.message || data.error || 'Failed to load');
+                // Generate if strictly needed, or handle as "Not generated"
+                // For client-side safety, we could try to generate and upsert, 
+                // but usually this is better done server-side. 
+                // We'll try one optimistic generation.
+                const newCode = generateFriendCode();
+                const username = user.user_metadata?.username || user.email?.split('@')[0] || 'user';
+
+                const { error: upsertError } = await supabase
+                    .from('user_profiles')
+                    .upsert({
+                        id: user.id,
+                        username: username,
+                        friend_code: newCode,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+
+                if (!upsertError) {
+                    setFriendCode(newCode);
+                } else {
+                    console.error('Failed to generate/save friend code', upsertError);
+                    setError('Could not generate code');
+                }
             }
         } catch (err: any) {
             console.error('Error fetching friend code:', err);
             setError('Network error');
         }
-    };
+    }, [supabase]);
 
-    const fetchFriends = async () => {
+    const fetchFriends = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/friends/list');
-            if (response.ok) {
-                const data = await response.json();
-                setFriends(data.friends || []);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data: friendsData, error: friendsError } = await supabase
+                .from('friends')
+                .select(`
+                id,
+                status,
+                created_at,
+                friend:user_profiles!friends_friend_id_fkey(id, username, profile_picture_url)
+              `)
+                .eq('user_id', user.id)
+                .eq('status', 'accepted');
+
+            if (friendsError) {
+                console.error('Error fetching friends:', friendsError);
+                // toast({ title: "Error", description: "Could not load friends", variant: "destructive" });
+            } else {
+                setFriends(friendsData || []);
             }
+
         } catch (error) {
             console.error('Error fetching friends:', error);
         } finally {
             setLoading(false);
         }
-    };
+    }, [supabase]);
+
+    useEffect(() => {
+        fetchFriendCode();
+        fetchFriends();
+    }, [fetchFriendCode, fetchFriends]);
 
     const copyFriendCode = () => {
         navigator.clipboard.writeText(friendCode);
@@ -67,32 +115,71 @@ export function FriendsSection() {
 
         setAdding(true);
         try {
-            const response = await fetch('/api/friends/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ friend_code: inputCode.toUpperCase() })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                toast({
-                    title: "Friend request sent!",
-                    description: `Request sent to @${data.friend.username}`
-                });
-                setInputCode('');
-                fetchFriends();
-            } else {
-                toast({
-                    title: "Failed to add friend",
-                    description: data.error,
-                    variant: "destructive"
-                });
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast({ title: "Error", description: "You must be logged in", variant: "destructive" });
+                return;
             }
-        } catch (error) {
+
+            const codeToAdd = inputCode.toUpperCase();
+
+            // 1. Find user by code
+            const { data: friendProfile, error: findError } = await supabase
+                .from('user_profiles')
+                .select('id, username')
+                .eq('friend_code', codeToAdd)
+                .single();
+
+            if (findError || !friendProfile) {
+                toast({ title: "Error", description: "Friend code not found", variant: "destructive" });
+                setAdding(false);
+                return;
+            }
+
+            if (friendProfile.id === user.id) {
+                toast({ title: "Error", description: "Cannot add yourself", variant: "destructive" });
+                setAdding(false);
+                return;
+            }
+
+            // 2. Check existing
+            const { data: existing } = await supabase
+                .from('friends')
+                .select('*')
+                .or(`and(user_id.eq.${user.id},friend_id.eq.${friendProfile.id}),and(user_id.eq.${friendProfile.id},friend_id.eq.${user.id})`)
+                .maybeSingle();
+
+            if (existing) {
+                toast({
+                    title: "Info",
+                    description: existing.status === 'accepted' ? 'Already friends' : 'Request already sent',
+                    variant: "default"
+                });
+                setAdding(false);
+                return;
+            }
+
+            // 3. Insert
+            const { error: insertError } = await supabase
+                .from('friends')
+                .insert({
+                    user_id: user.id,
+                    friend_id: friendProfile.id,
+                    status: 'pending'
+                });
+
+            if (insertError) throw insertError;
+
+            toast({
+                title: "Friend request sent!",
+                description: `Request sent to @${friendProfile.username}`
+            });
+            setInputCode('');
+            // fetchFriends(); // Only shows accepted, so no change visible immediately usually
+        } catch (error: any) {
             toast({
                 title: "Error",
-                description: "Failed to send friend request",
+                description: "Failed to send friend request: " + error.message,
                 variant: "destructive"
             });
         } finally {

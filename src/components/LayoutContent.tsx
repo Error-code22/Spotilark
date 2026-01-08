@@ -11,6 +11,17 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     setIsMounted(true);
+
+    // Register Service Worker for PWA
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then((registration) => {
+          console.log('[SW] Registration successful with scope: ', registration.scope);
+        }, (err) => {
+          console.log('[SW] Registration failed: ', err);
+        });
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -52,7 +63,7 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
 
   return (
     <div className="min-h-screen">
-      <TauriUpdater />
+      {/* <TauriUpdater /> */}
       {children}
     </div>
   );

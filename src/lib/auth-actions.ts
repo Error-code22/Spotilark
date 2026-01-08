@@ -1,8 +1,5 @@
-'use server'
 
-import { createClient } from './supabase/server'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { createClient } from './supabase/client'
 
 // Helper function to generate DiceBear avatar URL
 function generateDiceBearAvatarUrl(seed: string): string {
@@ -14,7 +11,7 @@ function generateDiceBearAvatarUrl(seed: string): string {
 export async function signInWithEmailAndPassword(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -41,7 +38,7 @@ export async function signInWithEmailAndPassword(prevState: any, formData: FormD
 export async function signUpWithEmailAndPassword(prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     const avatarUrl = generateDiceBearAvatarUrl(email);
@@ -81,11 +78,11 @@ export async function signUpWithEmailAndPassword(prevState: any, formData: FormD
 }
 
 export async function signOut(formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     await supabase.auth.signOut()
-    
+
     // For server-side action, return success instead of redirecting here
     // Redirect will happen on client side
     return { success: true, error: null }

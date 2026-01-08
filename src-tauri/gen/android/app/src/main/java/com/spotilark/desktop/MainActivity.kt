@@ -1,4 +1,4 @@
-package com.tauri.dev
+package com.spotilark.desktop
 
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge

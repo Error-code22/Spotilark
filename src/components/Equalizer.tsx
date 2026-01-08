@@ -169,8 +169,8 @@ export default function FluxEqualizer({ audioId = "spotilark-audio" }: { audioId
         <button
           onClick={() => setEnabled(!enabled)}
           className={cn(
-            "w-12 h-6 rounded-full transition-all duration-300 relative",
-            enabled ? "bg-primary" : "bg-muted"
+            "w-12 h-6 rounded-full transition-all duration-300 relative border border-white/10",
+            enabled ? "bg-primary" : "bg-muted shadow-inner"
           )}
         >
           <span

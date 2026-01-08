@@ -62,7 +62,13 @@ export function TauriUpdater() {
                 console.log('[Updater] App is up to date.');
             }
         } catch (error) {
-            console.error('[Updater] Error checking for updates:', error);
+            // Silence the typical "release JSON" error in dev/missing remote
+            const errorMsg = String(error);
+            if (!errorMsg.includes('Could not fetch a valid release JSON')) {
+                console.error('[Updater] Error checking for updates:', error);
+            } else {
+                console.warn('[Updater] No update JSON found at remote. Skipping update check.');
+            }
         }
     };
 
