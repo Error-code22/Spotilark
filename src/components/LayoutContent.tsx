@@ -14,13 +14,13 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
 
     // Register Service Worker for PWA
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then((registration) => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
           console.log('[SW] Registration successful with scope: ', registration.scope);
-        }, (err) => {
+        })
+        .catch((err) => {
           console.log('[SW] Registration failed: ', err);
         });
-      });
     }
   }, []);
 
