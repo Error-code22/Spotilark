@@ -45,6 +45,7 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   },
+  serverExternalPackages: ['cheerio', 'yt-search'],
 };
 
 export default nextConfig;
