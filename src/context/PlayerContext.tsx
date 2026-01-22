@@ -16,6 +16,8 @@ import { getCachedTrack, cacheTrack } from "@/lib/cache-utils";
 import { updatePresence } from "@/lib/presence-utils";
 import { resolveYouTubeStream } from "@/lib/youtube-utils";
 import { resolveTelegramLink } from "@/lib/telegram-client";
+import { Capacitor, CapacitorHttp } from "@capacitor/core";
+import { useDevices } from "./DeviceContext";
 
 type RepeatMode = "off" | "all" | "one";
 
@@ -51,6 +53,13 @@ interface PlayerContextType {
   setSplitAudioEnabled: (enabled: boolean) => void;
   rightAudioUrl: string;
   setRightAudioUrl: (url: string) => void;
+  rightTrack: Track | null;
+  setRightTrack: (track: Track | null) => void;
+  isRightPlaying: boolean;
+  toggleRightPlayPause: () => void;
+  rightCurrentTime: number;
+  rightDuration: number;
+  handleRightSeek: (value: number) => void;
   isLyricsViewOpen: boolean;
   toggleLyricsView: () => void;
   localLibrary: Track[];
@@ -165,12 +174,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
 
   const { crossfade, crossfadeDuration, playbackSpeed, audioNormalization, automix, gaplessPlayback, streamingQuality, downloadQuality, shareListeningActivity } = useSettings();
+  const { currentDevice, activePlayerDevice, registerDevice, activateDevice, updatePlaybackState, sendCommand } = useDevices();
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user));
-  }, []);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+      if (user) registerDevice();
+    });
+  }, [registerDevice]);
+
+  // Handle Playback Takeover: If we start playing locally, we must become the Active device
+  useEffect(() => {
+    if (isPlaying && currentDevice && !currentDevice.is_active) {
+      console.log("[Player] Local playback started. Seizing Active role...");
+      activateDevice();
+    }
+  }, [isPlaying, currentDevice?.is_active, activateDevice]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const nextAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -183,6 +204,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   const totalMinutesRecordedRef = useRef<number>(0);
   const songPlayRecordedRef = useRef<string | null>(null); // trackId of currently recorded song
   const lastTickRef = useRef<number>(Date.now());
+
+  // Refs for stable comparison in remote sync effect
+  const isPlayingRef = useRef(isPlaying);
+  const volumeRef = useRef(volume);
+  const currentTrackRef = useRef(currentTrack);
+  const currentTimeRef = useRef(currentTime);
+  const trackQueueRef = useRef(trackQueue);
+
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  useEffect(() => { trackQueueRef.current = trackQueue; }, [trackQueue]);
 
   // Initialize Web Audio API for Normalization
   useEffect(() => {
@@ -272,15 +306,64 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     }
   }, [playbackSpeed, currentTrack]);
 
-  // Heartbeat presence when settings or track changes
-  useEffect(() => {
-    if (user && shareListeningActivity) {
-      updatePresence(user.id, currentTrack, isPlaying, shareListeningActivity);
+  const handleSeek = useCallback((value: number) => {
+    // Remote Control Logic
+    if (activePlayerDevice && !currentDevice?.is_active) {
+      sendCommand(activePlayerDevice.id, { type: 'SEEK', value: Math.floor(value * 1000) });
+      return;
     }
-  }, [user, currentTrack, isPlaying, shareListeningActivity]);
+
+    if (audioRef.current) {
+      audioRef.current.currentTime = value;
+      setCurrentTime(value);
+    }
+  }, [activePlayerDevice, currentDevice?.is_active, sendCommand]);
+
+  const seekBy = useCallback((amount: number) => {
+    if (audioRef.current && duration > 0) {
+      const newTime = audioRef.current.currentTime + amount;
+      const clampedTime = Math.max(0, Math.min(newTime, duration));
+      audioRef.current.currentTime = clampedTime;
+      setCurrentTime(clampedTime);
+    }
+  }, [duration]);
+
+  const handleVolumeChange = useCallback((value: number) => {
+    // Remote Control Logic
+    if (activePlayerDevice && !currentDevice?.is_active) {
+      sendCommand(activePlayerDevice.id, { type: 'VOLUME', value });
+      return;
+    }
+    setVolume(value);
+  }, [activePlayerDevice, currentDevice?.is_active, sendCommand]);
+
+  const toggleShuffle = useCallback(() => {
+    setIsShuffled(prev => !prev);
+  }, []);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  }, []);
+
+  const toggleNowPlaying = useCallback(() => {
+    setIsNowPlayingOpen(prev => !prev);
+  }, []);
 
   const play = useCallback(async (index: number) => {
     if (index >= 0 && index < trackQueue.length) {
+      // Remote Control Logic
+      if (activePlayerDevice && !currentDevice?.is_active) {
+        console.log(`[RemoteControl] Casting track to: ${activePlayerDevice.name}`);
+        const track = trackQueue[index];
+        await sendCommand(activePlayerDevice.id, { type: 'SET_TRACK', value: track });
+        await sendCommand(activePlayerDevice.id, { type: 'PLAY_PAUSE', value: true });
+        return;
+      }
+
       // Automix/Crossfade Transition
       if (isPlaying && (crossfade || automix) && audioRef.current && !audioRef.current.paused) {
         const audio = audioRef.current;
@@ -297,6 +380,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           const progress = currentStep / steps;
           audio.volume = Math.max(0, startVol * (1 - progress));
 
+          if (currentStep >= steps) clearInterval(fadeOut);
         }, fadeInterval);
       }
 
@@ -306,9 +390,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       setCurrentTrackIndex(index);
       setIsPlaying(true);
     }
-  }, [trackQueue.length, isPlaying, crossfade, automix, crossfadeDuration]);
+  }, [trackQueue.length, isPlaying, crossfade, automix, crossfadeDuration, activePlayerDevice, currentDevice?.is_active, sendCommand]);
 
-  const playTrack = (track: Track) => {
+  const playTrack = useCallback(async (track: Track) => {
+    // Remote Control Logic
+    if (activePlayerDevice && !currentDevice?.is_active) {
+      console.log(`[RemoteControl] Casting track to: ${activePlayerDevice.name}`);
+      await sendCommand(activePlayerDevice.id, { type: 'SET_TRACK', value: track });
+      await sendCommand(activePlayerDevice.id, { type: 'PLAY_PAUSE', value: true });
+      return;
+    }
+
     // Find the index of this track in the current queue
     const trackIndex = trackQueue.findIndex(t => t.id === track.id);
 
@@ -323,7 +415,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       setCurrentTrackIndex(0);
       setIsPlaying(true);
     }
-  };
+  }, [trackQueue, activePlayerDevice, currentDevice?.is_active, sendCommand]);
 
   const playNext = useCallback(() => {
     if (trackQueue.length === 0) return;
@@ -354,7 +446,80 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       setCurrentTrackIndex(null);
     }
 
-  }, [currentTrackIndex, trackQueue.length, play, repeatMode, isShuffled]);
+  }, [currentTrackIndex, trackQueue.length, play, repeatMode, isShuffled, handleSeek]);
+
+  const playPrev = useCallback(() => {
+    // Remote Control Logic
+    if (activePlayerDevice && !currentDevice?.is_active) {
+      sendCommand(activePlayerDevice.id, { type: 'SKIP', value: 'prev' });
+      return;
+    }
+
+    if (trackQueue.length === 0) return;
+    if (currentTrackIndex !== null) {
+      const prevIndex =
+        (currentTrackIndex - 1 + trackQueue.length) % trackQueue.length;
+      play(prevIndex);
+    }
+  }, [currentTrackIndex, trackQueue.length, play, activePlayerDevice, currentDevice?.is_active, sendCommand]);
+
+  const togglePlayPause = useCallback(() => {
+    // Remote Control Logic
+    if (activePlayerDevice && !currentDevice?.is_active) {
+      sendCommand(activePlayerDevice.id, { type: 'PLAY_PAUSE', value: !isPlaying });
+      return;
+    }
+
+    if (currentTrackIndex === null && trackQueue.length > 0) {
+      play(0);
+    } else if (currentTrack) {
+      setIsPlaying((prev) => !prev);
+    }
+  }, [currentTrackIndex, trackQueue.length, play, currentTrack, activePlayerDevice, currentDevice?.is_active, sendCommand, isPlaying]);
+
+  /*
+   * Keyboard Shortcuts
+   * Space: Toggle Play/Pause
+   * N: Next Track
+   * P: Previous Track
+   * M: Mute
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault(); // Prevent scrolling
+        togglePlayPause();
+      } else if (e.code === 'KeyN') {
+        playNext();
+      } else if (e.code === 'KeyP') {
+        playPrev();
+      } else if (e.code === 'KeyM') {
+        setVolume((prev) => (prev > 0 ? 0 : 0.5)); // Mute or restore to 50%
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlayPause, playNext, playPrev]);
+
+  // Heartbeat presence when settings or track changes
+  useEffect(() => {
+    if (user && shareListeningActivity) {
+      updatePresence(user.id, currentTrack, isPlaying, shareListeningActivity);
+    }
+  }, [user, currentTrack, isPlaying, shareListeningActivity]);
+
+
 
   useEffect(() => {
     // In a real app, you would load the track queue from local storage here.
@@ -383,7 +548,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedVolume = localStorage.getItem("spotilark-volume");
-      // Use the ref which is now attached to the rendered element
       const audio = audioRef.current;
 
       if (audio) {
@@ -400,7 +564,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         audio.addEventListener("loadedmetadata", handleLoadedMetadata);
         audio.addEventListener("ended", handleEnded);
 
-        // Cleanup function
         return () => {
           audio.removeEventListener("timeupdate", handleTimeUpdate);
           audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
@@ -408,7 +571,101 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         };
       }
     }
-  }, []); // Empty dependency array ensures this runs only once
+  }, []);
+
+  // Sync state with DeviceContext for the active player
+  useEffect(() => {
+    if (!currentDevice?.is_active) return;
+
+    const syncToCloud = async () => {
+      await updatePlaybackState({
+        current_track_json: currentTrack,
+        is_playing: isPlaying,
+        position_ms: Math.floor(currentTime * 1000),
+        volume: volume,
+        queue_ids: trackQueue.map(t => t.id)
+      });
+    };
+
+    // Throttled sync for position, immediate for play/track changes
+    const timer = setTimeout(syncToCloud, isPlaying ? 5000 : 1000);
+    return () => clearTimeout(timer);
+  }, [currentTrack?.id, isPlaying, volume, Math.floor(currentTime / 5), trackQueue.length]);
+
+  // Listen for Remote Commands (when we are the active player) OR State Mirroring (when we are the controller)
+  useEffect(() => {
+    if (!currentDevice || !user) return;
+
+    const supabase = createClient();
+    const sub = supabase.channel(`device_sync_${currentDevice.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'devices',
+        filter: `user_id=eq.${user.id}`
+      }, (payload) => {
+        const updatedDevice = payload.new as any;
+
+        // 1. BEHAVIOR AS ACTIVE PLAYER: Listen for incoming commands
+        if (currentDevice.is_active && updatedDevice.id === currentDevice.id) {
+          // Check if track changed remotely (e.g. from a "Play This" command)
+          if (updatedDevice.current_track_json?.id && updatedDevice.current_track_json.id !== currentTrackRef.current?.id) {
+            playTrack(updatedDevice.current_track_json);
+          }
+
+          // Check if play/pause changed remotely
+          if (updatedDevice.is_playing !== isPlayingRef.current) {
+            setIsPlaying(updatedDevice.is_playing);
+          }
+
+          // Check if volume changed remotely
+          if (updatedDevice.volume !== volumeRef.current) {
+            setVolume(updatedDevice.volume);
+          }
+
+          // Check for specific commands in metadata (SKIP/SEEK)
+          if (updatedDevice.current_track_json?._command) {
+            const cmd = updatedDevice.current_track_json._command;
+            if (cmd.type === 'SKIP') {
+              if (cmd.value === 'next') playNext();
+              else playPrev();
+              updatePlaybackState({ current_track_json: { ...updatedDevice.current_track_json, _command: null } });
+            }
+            if (cmd.type === 'SEEK') {
+              handleSeek(cmd.value / 1000);
+              updatePlaybackState({ current_track_json: { ...updatedDevice.current_track_json, _command: null } });
+            }
+          }
+        }
+
+        // 2. BEHAVIOR AS CONTROLLER: Mirror the Active Player's state
+        if (!currentDevice.is_active && updatedDevice.is_active) {
+          console.log(`[RemoteSync] Mirroring Active Player: ${updatedDevice.name}`);
+          if (updatedDevice.current_track_json?.id !== currentTrackRef.current?.id) {
+            // Update local currentTrack without triggering local playback
+            const trackIndex = trackQueueRef.current.findIndex(t => t.id === updatedDevice.current_track_json.id);
+            if (trackIndex !== -1) setCurrentTrackIndex(trackIndex);
+            else {
+              // If track not in current queue, we'd need to fetch it or just use the JSON
+              // For now, let's just use the JSON to keep the UI in sync
+              setTrackQueue([updatedDevice.current_track_json]);
+              setCurrentTrackIndex(0);
+            }
+          }
+          if (updatedDevice.is_playing !== isPlayingRef.current) setIsPlaying(updatedDevice.is_playing);
+          if (updatedDevice.volume !== volumeRef.current) setVolume(updatedDevice.volume);
+
+          // Sync position if it's significantly different (> 5s)
+          const remotePos = updatedDevice.position_ms / 1000;
+          if (Math.abs(currentTimeRef.current - remotePos) > 5) {
+            setCurrentTime(remotePos);
+          }
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(sub); };
+  }, [currentDevice?.id, currentDevice?.is_active, user, playNext, playPrev, updatePlaybackState, handleSeek]);
 
   // Handle volume changes
   useEffect(() => {
@@ -518,38 +775,36 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
           // 1. Check if track is cached
           const cachedBlob = await getCachedTrack(currentTrack.id);
+
           if (cachedBlob) {
-            // We use a simple ref-based cache for Blob URLs to prevent infinite reloading
             if ((audio as any)._lastTrackId === currentTrack.id && (audio as any)._lastBlobUrl) {
               audioSrc = (audio as any)._lastBlobUrl;
             } else {
-              // Revoke old blob URL if we had one
               if ((audio as any)._lastBlobUrl) URL.revokeObjectURL((audio as any)._lastBlobUrl);
-
               audioSrc = URL.createObjectURL(cachedBlob);
               (audio as any)._lastBlobUrl = audioSrc;
               (audio as any)._lastTrackId = currentTrack.id;
             }
           } else {
-            // 2. If not cached, clear blob cache for this audio element
+            // If not cached, clear blob cache
             if ((audio as any)._lastBlobUrl) {
               URL.revokeObjectURL((audio as any)._lastBlobUrl);
               (audio as any)._lastBlobUrl = null;
               (audio as any)._lastTrackId = null;
             }
 
-            // Background download timer - ONLY for non-stream tracks to save bandwidth
-            if (currentTrack.storage_type !== 'stream') {
+            // SMART STREAMING: Delay heavy caching by 20 seconds
+            const cacheDelay = Capacitor.isNativePlatform() ? 20000 : 30000; // 20s on Native, 30s on Web
+
+            if (currentTrack.storage_type !== 'stream' || Capacitor.isNativePlatform()) {
               cacheTimerRef.current = setTimeout(async () => {
                 try {
-                  // Re-check if still playing and not already cached
                   const doubleCheck = await getCachedTrack(currentTrack.id);
                   if (doubleCheck) return;
 
-                  console.log(`[Player] Background caching: ${currentTrack.title}`);
+                  console.log(`[Player] Smart Cache starting for: ${currentTrack.title}`);
                   let finalUrl = currentTrack.source_url;
 
-                  // Use resolved URLs for caching
                   if (streamCacheRef.current.has(currentTrack.id)) {
                     finalUrl = streamCacheRef.current.get(currentTrack.id)!;
                   } else {
@@ -571,58 +826,78 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
                   if (!finalUrl) return;
 
-                  const response = await fetch(finalUrl);
-                  if (response.ok) {
-                    const contentType = response.headers.get('Content-Type');
-                    if (contentType && contentType.includes('text/html')) {
-                      console.warn(`[Player] Cacher received HTML for ${currentTrack.title}. Skipping.`);
-                      return;
-                    }
+                  let blob: Blob | null = null;
 
-                    const blob = await response.blob();
+                  if (Capacitor.isNativePlatform()) {
+                    const options = { url: finalUrl, responseType: 'blob' as const };
+                    const response = await CapacitorHttp.get(options);
+                    if (response.status === 200) {
+                      const data = response.data;
+                      if (typeof data === 'string') {
+                        const base64Response = await fetch(`data:audio/mp3;base64,${data}`);
+                        blob = await base64Response.blob();
+                      }
+                    }
+                  } else {
+                    const response = await fetch(finalUrl);
+                    if (response.ok) {
+                      const contentType = response.headers.get('Content-Type');
+                      if (contentType && !contentType.includes('text/html')) {
+                        blob = await response.blob();
+                      }
+                    }
+                  }
+
+                  if (blob) {
                     await cacheTrack(currentTrack.id, blob);
-                    console.log(`Track ${currentTrack.title} cached successfully!`);
+                    console.log(`Track ${currentTrack.title} cached successfully.`);
+
+                    if ((audio as any)._lastSetId === currentTrack.id && !audio.paused) {
+                      const newUrl = URL.createObjectURL(blob);
+                      const curTime = audio.currentTime;
+                      audio.src = newUrl;
+                      (audio as any)._lastBlobUrl = newUrl;
+                      audio.currentTime = curTime;
+                      audio.play();
+                    }
                   }
                 } catch (e) {
-                  console.error("Background caching failed:", e);
+                  console.error("Smart caching failed:", e);
                 }
-              }, 15000); // Increased to 15s to allow initial buffer to settle
+              }, cacheDelay);
             }
           }
 
-          // Normalize and check if we actually need to update the src.
-          // For blobs, the browser sometimes prepends the origin.
-          let absoluteSrc = '';
-          try {
-            absoluteSrc = new URL(audioSrc, window.location.href).href;
-          } catch (e) {
-            absoluteSrc = audioSrc;
-          }
-
           const currentAudioSrc = audio.src;
+          const absoluteSrc = audioSrc.startsWith('blob:') ? audioSrc : new URL(audioSrc, window.location.href).href;
+
           const needsUpdate = (audio as any)._lastSetId !== currentTrack.id ||
             (currentAudioSrc !== absoluteSrc && currentAudioSrc !== audioSrc);
 
           if (needsUpdate) {
-            console.log(`[Player] Updating Audio Source:`, audioSrc);
+            console.log(`[Player] Setting Source: ${currentTrack.title} -> ${audioSrc.substring(0, 50)}...`);
             audio.src = audioSrc;
             (audio as any)._lastSetId = currentTrack.id;
             audio.playbackRate = playbackSpeed;
             setDuration(currentTrack.duration || 0);
+
+            audio.onerror = (e) => {
+              console.error(`[Player] Playback Error [${currentTrack.title}]:`, audio.error);
+              // Fallback to source_url if resolved URL failed
+              if (audioSrc !== currentTrack.source_url) {
+                console.log("[Player] Attempting fallback to original source_url...");
+                audio.src = currentTrack.source_url || '';
+              }
+            };
 
             if (crossfade && isPlaying) {
               audio.volume = 0;
             } else {
               audio.volume = volume;
             }
-
-            // Re-bind error handler for more details
-            audio.onerror = (e) => {
-              console.error(`[Player] Playback Error for ${currentTrack.title}:`, audio.error);
-            };
           }
 
-          if (isPlaying) {
+          if (isPlaying && currentDevice?.is_active) {
             if (playPromiseRef.current) {
               await playPromiseRef.current;
             }
@@ -668,7 +943,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     };
 
     syncPlayback();
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack, isPlaying, currentDevice?.is_active]);
 
   // Listening Stats Tick Logic
   useEffect(() => {
@@ -772,93 +1047,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     return () => clearTimeout(timer);
   }, [currentTrack, currentTrackIndex, trackQueue]);
 
-  const togglePlayPause = useCallback(() => {
-    if (currentTrackIndex === null && trackQueue.length > 0) {
-      play(0);
-    } else if (currentTrack) {
-      setIsPlaying((prev) => !prev);
-    }
-  }, [currentTrackIndex, trackQueue.length, play, currentTrack]);
 
-  const playPrev = useCallback(() => {
-    if (trackQueue.length === 0) return;
-    if (currentTrackIndex !== null) {
-      const prevIndex =
-        (currentTrackIndex - 1 + trackQueue.length) % trackQueue.length;
-      play(prevIndex);
-    }
-  }, [currentTrackIndex, trackQueue.length, play]);
-
-  /*
-   * Keyboard Shortcuts
-   * Space: Toggle Play/Pause
-   * N: Next Track
-   * P: Previous Track
-   * M: Mute
-   */
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input, textarea, or contentEditable element
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      if (e.code === 'Space') {
-        e.preventDefault(); // Prevent scrolling
-        togglePlayPause();
-      } else if (e.code === 'KeyN') {
-        playNext();
-      } else if (e.code === 'KeyP') {
-        playPrev();
-      } else if (e.code === 'KeyM') {
-        setVolume((prev) => (prev > 0 ? 0 : 0.5)); // Mute or restore to 50%
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayPause, playNext, playPrev]);
-
-  const handleSeek = (value: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = value;
-      setCurrentTime(value);
-    }
-  };
-
-  const seekBy = (amount: number) => {
-    if (audioRef.current && duration > 0) {
-      const newTime = audioRef.current.currentTime + amount;
-      const clampedTime = Math.max(0, Math.min(newTime, duration));
-      audioRef.current.currentTime = clampedTime;
-      setCurrentTime(clampedTime);
-    }
-  };
-
-  const handleVolumeChange = (value: number) => {
-    setVolume(value);
-  };
-
-  const toggleShuffle = () => {
-    setIsShuffled(prev => !prev);
-  };
-
-  const toggleRepeat = () => {
-    setRepeatMode(prev => {
-      if (prev === 'off') return 'all';
-      if (prev === 'all') return 'one';
-      return 'off';
-    });
-  };
-
-  const toggleNowPlaying = () => {
-    setIsNowPlayingOpen(prev => !prev);
-  };
 
   // Function to check if a track is liked
   const isTrackLiked = useCallback((trackId: string): boolean => {
@@ -939,7 +1128,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
   const [splitAudioEnabled, setSplitAudioEnabled] = useState(false);
   const [rightAudioUrl, setRightAudioUrl] = useState<string>("");
+  const [rightTrack, setRightTrack] = useState<Track | null>(null);
+  const [isRightPlaying, setIsRightPlaying] = useState(false);
+  const [rightCurrentTime, setRightCurrentTime] = useState(0);
+  const [rightDuration, setRightDuration] = useState(0);
   const rightAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleRightPlayPause = useCallback(() => {
+    const rightAudio = rightAudioRef.current;
+    if (!rightAudio || !rightTrack) return;
+
+    if (isRightPlaying) {
+      rightAudio.pause();
+      setIsRightPlaying(false);
+    } else {
+      rightAudio.play().catch(e => console.error("Right audio play error", e));
+      setIsRightPlaying(true);
+    }
+  }, [rightTrack, isRightPlaying]);
+
+  const handleRightSeek = useCallback((value: number) => {
+    const rightAudio = rightAudioRef.current;
+    if (rightAudio && rightDuration) {
+      rightAudio.currentTime = (value / 100) * rightDuration;
+    }
+  }, [rightDuration]);
 
   // Split Audio Web Audio API Graph
   useEffect(() => {
@@ -984,13 +1197,18 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
     // 3. Create Panners
     const leftPanner = audioCtx.createStereoPanner();
-    leftPanner.pan.value = -1; // Hard Left
-
     const rightPanner = audioCtx.createStereoPanner();
-    rightPanner.pan.value = 1; // Hard Right
+
+    // Only pan if we actually have a secondary track set, otherwise maintain stereo for main
+    if (rightTrack) {
+      leftPanner.pan.value = -1; // Hard Left
+      rightPanner.pan.value = 1; // Hard Right
+    } else {
+      leftPanner.pan.value = 0; // Center (Normal Stereo)
+      rightPanner.pan.value = 0;
+    }
 
     // 4. Connect Graph
-    // Disconnect existing connections to be safe (might break Equalizer temporarily, considered acceptable for this mode)
     try { leftSource.disconnect(); } catch (e) { }
     try { rightSource.disconnect(); } catch (e) { }
 
@@ -1021,14 +1239,53 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         console.error("Split Audio Cleanup Error:", e);
       }
     };
-  }, [splitAudioEnabled]);
+  }, [splitAudioEnabled, rightTrack]);
 
-  // Handle Right Audio Playback Sync (Basic)
+  // Handle Right Audio Resolution
+  useEffect(() => {
+    const resolveRightTrack = async () => {
+      if (!splitAudioEnabled || !rightTrack) {
+        setRightAudioUrl("");
+        return;
+      }
+
+      let audioSrc = rightTrack.source_url || "";
+
+      // YouTube
+      if (rightTrack.storage_type === 'stream') {
+        const trackId = typeof rightTrack.id === 'string' && rightTrack.id.startsWith('yt-')
+          ? rightTrack.id.replace('yt-', '')
+          : null;
+        if (trackId) {
+          try {
+            const resolved = await resolveYouTubeStream(trackId, streamingQuality);
+            if (resolved) audioSrc = resolved;
+          } catch (e) { console.error("Right YouTube resolution failed", e); }
+        }
+      }
+      // Telegram
+      else if (rightTrack.storage_type === 'cloud' && rightTrack.source_url?.includes('storage/stream')) {
+        const match = rightTrack.source_url.match(/[?&]file_id=([^&]+)/);
+        if (match) {
+          try {
+            const resolved = await resolveTelegramLink(match[1]);
+            if (resolved) audioSrc = resolved;
+          } catch (e) { console.error("Right Telegram resolution failed", e); }
+        }
+      }
+
+      setRightAudioUrl(audioSrc);
+    };
+
+    resolveRightTrack();
+  }, [splitAudioEnabled, rightTrack?.id, streamingQuality]);
+
+  // Handle Right Audio Playback Sync
   useEffect(() => {
     const rightAudio = rightAudioRef.current;
     if (splitAudioEnabled && rightAudio && rightAudioUrl) {
       rightAudio.src = rightAudioUrl;
-      if (isPlaying) {
+      if (isRightPlaying) {
         rightAudio.play().catch(e => console.error("Right audio play error", e));
       } else {
         rightAudio.pause();
@@ -1037,7 +1294,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       rightAudio.pause();
       rightAudio.src = "";
     }
-  }, [splitAudioEnabled, rightAudioUrl, isPlaying]);
+  }, [splitAudioEnabled, rightAudioUrl, isRightPlaying]);
 
 
   const value = {
@@ -1072,6 +1329,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     setSplitAudioEnabled,
     rightAudioUrl,
     setRightAudioUrl,
+    rightTrack,
+    setRightTrack,
+    isRightPlaying,
+    toggleRightPlayPause,
+    rightCurrentTime,
+    rightDuration,
+    handleRightSeek,
     isLyricsViewOpen,
     toggleLyricsView,
     localLibrary,
@@ -1129,6 +1393,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         id="spotilark-audio-right"
         crossOrigin="anonymous"
         className="hidden"
+      />
+      <audio
+        ref={rightAudioRef}
+        id="spotilark-audio-right"
+        crossOrigin="anonymous"
+        className="hidden"
+        onTimeUpdate={(e) => setRightCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setRightDuration(e.currentTarget.duration)}
+        onEnded={() => setIsRightPlaying(false)}
       />
     </PlayerContext.Provider>
   );

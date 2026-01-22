@@ -8,7 +8,7 @@ export async function resolveTelegramLink(fileId: string): Promise<string | null
         console.log(`[TelegramClient] Resolving file link via proxy: ${fileId}`);
 
         // Call our internal proxy API instead of Telegram directly
-        const response = await fetch(`/api/telegram?fileId=${fileId}`);
+        const response = await fetch(`/api/telegram?fileId=${encodeURIComponent(fileId)}`);
 
         if (!response.ok) {
             throw new Error(`Proxy API returned ${response.status}`);

@@ -11,16 +11,19 @@ export async function GET(request: Request) {
     }
 
     try {
+        console.log(`[Telegram API Proxy] Getting file path for: ${fileId.substring(0, 10)}...`);
         // 1. Get file path
         const getFileUrl = `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`;
         const getFileResponse = await fetch(getFileUrl);
         const getFileData = await getFileResponse.json();
 
         if (!getFileData.ok || !getFileData.result?.file_path) {
-            return NextResponse.json({ error: 'Failed to get file path' }, { status: 500 });
+            console.error('[Telegram API Proxy] getFile failed:', getFileData);
+            return NextResponse.json({ error: 'Failed to get file path', detail: getFileData }, { status: 500 });
         }
 
         const filePath = getFileData.result.file_path;
+        console.log(`[Telegram API Proxy] Success! File path: ${filePath}`);
         const directLink = `https://api.telegram.org/file/bot${token}/${filePath}`;
 
         // 2. Fetch the actual file

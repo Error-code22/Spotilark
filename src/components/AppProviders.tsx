@@ -5,6 +5,7 @@ import { PlayerProvider } from '@/context/PlayerContext';
 import { Track } from '@/lib/data';
 import { createClient } from '@/lib/supabase/client';
 import { UploadProvider } from '@/context/UploadContext';
+import { DeviceProvider } from '@/context/DeviceContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -72,10 +73,12 @@ export default function AppProviders({ children }: AppProvidersProps) {
   }, [fetchTracks]);
 
   return (
-    <PlayerProvider tracks={tracks} refetch={fetchTracks}>
-      <UploadProvider>
-        {children}
-      </UploadProvider>
-    </PlayerProvider>
+    <DeviceProvider>
+      <PlayerProvider tracks={tracks} refetch={fetchTracks}>
+        <UploadProvider>
+          {children}
+        </UploadProvider>
+      </PlayerProvider>
+    </DeviceProvider>
   );
 }

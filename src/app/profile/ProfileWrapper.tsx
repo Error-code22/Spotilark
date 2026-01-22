@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Headphones, ListMusic, Music, Pencil, User, Tag, Flame, BarChart, History, Download, Album, Palette, Image as ImageIcon, Share2, LogOut, Cloud, Heart, Settings, Users } from 'lucide-react';
+import { Headphones, ListMusic, Music, Pencil, User, Tag, Flame, BarChart, History, Download, Album, Palette, Image as ImageIcon, Share2, LogOut, Cloud, Heart, Settings, Users, Shield } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -27,7 +27,7 @@ export default function ProfilePageWrapper() {
   const { showRecentlyPlayed } = useSettings();
   const { theme, lightTheme, darkTheme } = useTheme();
 
-  const { user: authUser, isLoading: userLoading } = useUser();
+  const { user: authUser, isLoading: userLoading, isAdmin } = useUser();
   const [userStats, setUserStats] = useState<any>(null);
   const [userCollections, setUserCollections] = useState<any[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -358,7 +358,7 @@ export default function ProfilePageWrapper() {
           <div className="h-px flex-1 bg-primary/10 ml-6 hidden md:block"></div>
         </div>
 
-        <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12'>
+        <div className='grid gap-6 md:grid-cols-2 mb-12'>
           {/* THEME CARD */}
           <div className='p-8 rounded-[40px] bg-card/40 border-none shadow-sm hover:shadow-xl transition-all group relative overflow-hidden active:scale-[0.98]'>
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors" />
@@ -430,6 +430,31 @@ export default function ProfilePageWrapper() {
               </div>
             </div>
           </div>
+
+          {/* ADMIN CARD */}
+          {isAdmin && (
+            <div className='p-8 rounded-[40px] bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden active:scale-[0.98]'>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/20 transition-colors" />
+
+              <div className="flex flex-col gap-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 bg-primary/20 rounded-2xl text-primary">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-40">System Access</span>
+                </div>
+                <div>
+                  <h3 className='text-xl font-black mb-1'>Admin Dashboard</h3>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Manage users, tracks, and system settings
+                  </p>
+                </div>
+                <Button variant="default" size="sm" className="w-fit rounded-full font-bold bg-primary hover:bg-primary/90 group-hover:shadow-lg transition-shadow" onClick={() => router.push('/admin')}>
+                  Open Dashboard <Shield className="h-3 w-3 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* WRAPPED BANNER */}
           <div className='md:col-span-3 p-10 rounded-[40px] bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/10 relative overflow-hidden group hover:shadow-2xl transition-all'>
@@ -536,6 +561,6 @@ export default function ProfilePageWrapper() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </SpotilarkLayout>
+    </SpotilarkLayout >
   );
 }

@@ -9,6 +9,9 @@ export interface ResolvedStreams {
     videoUrl: string | null;
 }
 
+import { Capacitor } from "@capacitor/core";
+import { CapacitorHttp } from "@capacitor/core";
+
 /**
  * Parallel Racing: Fires multiple requests at once and takes the first successful one.
  */
@@ -19,15 +22,34 @@ async function raceInstances(urls: string[], timeoutMs: number = 15000): Promise
     const requests = urls.map(async (url) => {
         try {
             console.log(`[YoutubeUtils] Trying: ${url}`);
-            const res = await fetch(url, {
-                headers: getStealthHeaders(url),
-                signal: controller.signal
-            });
-            if (!res.ok) {
-                console.log(`[YoutubeUtils] Failed ${url}: Status ${res.status}`);
-                throw new Error(`Status ${res.status}`);
+            
+            let data;
+            
+            if (Capacitor.isNativePlatform()) {
+                // Native: Use CapacitorHttp to bypass CORS
+                const response = await CapacitorHttp.get({
+                    url: url,
+                    headers: getStealthHeaders(url)
+                });
+                
+                if (response.status !== 200) {
+                     console.log(`[YoutubeUtils] Failed ${url}: Status ${response.status}`);
+                     throw new Error(`Status ${response.status}`);
+                }
+                data = response.data;
+            } else {
+                // Web: Use standard Fetch
+                const res = await fetch(url, {
+                    headers: getStealthHeaders(url),
+                    signal: controller.signal
+                });
+                if (!res.ok) {
+                    console.log(`[YoutubeUtils] Failed ${url}: Status ${res.status}`);
+                    throw new Error(`Status ${res.status}`);
+                }
+                data = await res.json();
             }
-            const data = await res.json();
+
             // Basic validation that it's video data
             if (data && (data.audioStreams || data.adaptiveFormats || data.title)) {
                 controller.abort(); // Cancel other pending requests

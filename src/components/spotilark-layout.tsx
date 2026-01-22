@@ -133,15 +133,15 @@ export const SpotilarkLayout = ({
             <div className="h-2.5 w-2.5 rounded-full relative">
               <div className={cn(
                 "absolute inset-0 rounded-full animate-ping opacity-75",
-                isOnline ? "bg-emerald-500" : "bg-neutral-500"
+                isOnline ? "bg-emerald-500" : "bg-red-500"
               )}></div>
               <div className={cn(
                 "relative h-2.5 w-2.5 rounded-full",
-                isOnline ? "bg-emerald-500" : "bg-neutral-500"
+                isOnline ? "bg-emerald-500" : "bg-red-500"
               )}></div>
             </div>
-            <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-40">
-              {isOnline ? 'Online' : 'Offline'}
+            <span className="text-xl font-black italic tracking-tighter text-foreground/90">
+              Spotilark
             </span>
           </div>
         </div>
@@ -224,6 +224,31 @@ export const SpotilarkLayout = ({
         </div>
       </header>
 
+      {/* MOBILE SCROLLABLE NAV */}
+      <nav className="md:hidden flex items-center gap-6 px-4 py-2 border-b border-border/40 bg-background/50 backdrop-blur-md overflow-x-auto no-scrollbar scroll-smooth">
+        {menuItems.map(({ icon: Icon, label, href }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={label}
+              href={href}
+              className={cn(
+                "flex items-center gap-2 px-1 whitespace-nowrap transition-all active:scale-95",
+                active ? "text-primary font-bold" : "text-muted-foreground"
+              )}
+            >
+              <Icon className={cn("h-4 w-4", active && "fill-current/20")} />
+              <span className="text-xs uppercase tracking-widest">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <style jsx>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       {/* Desktop Sidebar */}
       <div className="hidden md:flex h-full">
         <LeftSidebar />
@@ -253,6 +278,6 @@ export const SpotilarkLayout = ({
       <PlayerControls />
       <NowPlaying />
       <LyricsView />
-    </div>
+    </div >
   );
 };
