@@ -26,21 +26,37 @@ export async function GET(request: Request) {
         console.log(`[Telegram API Proxy] Success! File path: ${filePath}`);
         const directLink = `https://api.telegram.org/file/bot${token}/${filePath}`;
 
-        // 2. Fetch the actual file
-        const fileResponse = await fetch(directLink);
-        if (!fileResponse.ok) {
+        // 2. Fetch the actual file with range support
+        const range = request.headers.get('range');
+        const telegramHeaders = new Headers();
+        if (range) {
+            telegramHeaders.set('Range', range);
+        }
+
+        const fileResponse = await fetch(directLink, {
+            headers: telegramHeaders,
+        });
+
+        if (!fileResponse.ok && fileResponse.status !== 206) {
+            console.error('[Telegram API Proxy] file fetch failed:', fileResponse.status, fileResponse.statusText);
             return NextResponse.json({ error: 'Failed to fetch file content' }, { status: 500 });
         }
 
         // 3. Pipe the stream back to the client
-        const blob = await fileResponse.blob();
+        const headers = new Headers();
+        headers.set('Content-Type', fileResponse.headers.get('Content-Type') || 'audio/mpeg');
+        headers.set('Cache-Control', 'public, max-age=3600');
+        headers.set('Accept-Ranges', 'bytes');
 
-        // We return the blob directly with correct content type
-        return new NextResponse(blob, {
-            headers: {
-                'Content-Type': 'audio/mpeg',
-                'Cache-Control': 'public, max-age=3600',
-            },
+        const contentRange = fileResponse.headers.get('Content-Range');
+        const contentLength = fileResponse.headers.get('Content-Length');
+
+        if (contentRange) headers.set('Content-Range', contentRange);
+        if (contentLength) headers.set('Content-Length', contentLength);
+
+        return new NextResponse(fileResponse.body, {
+            status: fileResponse.status,
+            headers,
         });
     } catch (error) {
         console.error('[Telegram API Proxy] Error:', error);

@@ -174,6 +174,83 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             return data.data.secure_url;
         };
 
+        const extractAudioSnippet = async (file: File): Promise<string | null> => {
+            try {
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const arrayBuffer = await file.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+                // We want first 15 seconds
+                const snippetDuration = Math.min(15, audioBuffer.duration);
+                const sampleRate = audioBuffer.sampleRate;
+                const frameCount = sampleRate * snippetDuration;
+
+                // Create a new buffer for the snippet (mono for smaller size)
+                const snippetBuffer = audioCtx.createBuffer(
+                    1,
+                    frameCount,
+                    sampleRate
+                );
+
+                // Copy data from the first channel
+                const channelData = audioBuffer.getChannelData(0);
+                const snippetData = snippetBuffer.getChannelData(0);
+                for (let i = 0; i < frameCount; i++) {
+                    snippetData[i] = channelData[i];
+                }
+
+                // Convert to a small WAV or just return the raw data? 
+                // To keep it simple and playable by <audio> tag, let's use a Data URL.
+                // Since Web Audio API doesn't have a built-in "Export to MP3/WAV", we'll use a simple WAV encoder.
+
+                const encodeWAV = (buffer: AudioBuffer) => {
+                    const length = buffer.length * 2 + 44;
+                    const outBuffer = new ArrayBuffer(length);
+                    const view = new DataView(outBuffer);
+                    const writeString = (offset: number, string: string) => {
+                        for (let i = 0; i < string.length; i++) {
+                            view.setUint8(offset + i, string.charCodeAt(i));
+                        }
+                    };
+
+                    writeString(0, 'RIFF');
+                    view.setUint32(4, 36 + buffer.length * 2, true);
+                    writeString(8, 'WAVE');
+                    writeString(12, 'fmt ');
+                    view.setUint32(16, 16, true);
+                    view.setUint16(20, 1, true); // PCM
+                    view.setUint16(22, 1, true); // Mono
+                    view.setUint32(24, buffer.sampleRate, true);
+                    view.setUint32(28, buffer.sampleRate * 2, true);
+                    view.setUint16(32, 2, true);
+                    view.setUint16(34, 16, true);
+                    writeString(36, 'data');
+                    view.setUint32(40, buffer.length * 2, true);
+
+                    const data = buffer.getChannelData(0);
+                    let offset = 44;
+                    for (let i = 0; i < data.length; i++, offset += 2) {
+                        const s = Math.max(-1, Math.min(1, data[i]));
+                        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    }
+                    return outBuffer;
+                };
+
+                const wavBuffer = encodeWAV(snippetBuffer);
+                const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+                // Convert Blob to Base64 to store in database
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                });
+            } catch (e) {
+                console.error("Failed to extract snippet:", e);
+                return null;
+            }
+        };
+
         const processFile = async (file: File) => {
             const fileId = `${file.name}-${file.size}-${file.lastModified}`;
 
@@ -192,13 +269,20 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
                 console.log(`[Upload] Processing ${file.name}, has cover: ${!!coverFile}`);
 
+                // EXTRACT SNIPPET (Phase 2)
+                console.log(`[Upload] Extracting 15s intro snippet for ${file.name}...`);
+                const snippetData = await extractAudioSnippet(file);
+                console.log(`[Upload] Snippet extraction for ${file.name}: ${snippetData ? 'SUCCESS' : 'FAILED'}`);
+
                 let coverUrl = null;
                 if (coverFile) {
                     setUploadStatuses(prev => ({ ...prev, [fileId]: 'uploading_cover' }));
                     setUploadProgress(prev => ({ ...prev, [fileId]: 10 }));
-                    console.log(`[Upload] Uploading cover for ${file.name}...`);
+                    console.log(`[Upload] Uploading cover for ${file.name} to Cloudinary...`);
                     coverUrl = await uploadToCloudinary(coverFile, 'image');
                     console.log(`[Upload] Cover uploaded successfully: ${coverUrl}`);
+                } else {
+                    console.warn(`[Upload] NO cover file found for ${file.name} in stateRef!`);
                 }
 
                 setUploadStatuses(prev => ({ ...prev, [fileId]: 'uploading_audio' }));
@@ -212,7 +296,8 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     title: metadata.title || file.name.replace(/\.[^/.]+$/, ""),
                     artist: metadata.artist || 'Unknown Artist',
                     album: metadata.album || 'Unknown Album',
-                    cover: coverUrl
+                    cover: coverUrl,
+                    hasSnippet: !!snippetData
                 });
 
                 const saveResponse = await fetch('/api/save-track-metadata', {
@@ -226,6 +311,7 @@ export const UploadProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         audioUrl,
                         cover: coverUrl,
                         duration: metadata.duration || 0,
+                        snippetData: snippetData, // Sending base64 snippet
                     }),
                 });
 

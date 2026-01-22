@@ -87,26 +87,27 @@ export default function MusicUploadForm() {
 
               if (tag.tags.picture) {
                 const { data, format } = tag.tags.picture;
+                console.log(`[CoverArt] Found picture tag for ${file.name}. Format: ${format}, Byte Length: ${data.length}`);
                 const byteArray = new Uint8Array(data);
                 const blob = new Blob([byteArray], { type: format });
                 const imageUrl = URL.createObjectURL(blob);
 
-                console.log(`[Cover Art] Extracted for ${file.name}, format: ${format}, size: ${blob.size} bytes`);
+                console.log(`[CoverArt] Created Blob for ${file.name}. Size: ${blob.size} bytes`);
 
                 setCoverPreview(fileId, imageUrl);
                 const coverFile = new File([blob], `cover_${fileId}.${format.split('/')[1]}`, { type: format });
                 setCoverFile(fileId, coverFile);
-                console.log(`[Cover Art] Cover file created and set for ${fileId}`);
+                console.log(`[CoverArt] SUCCESS: Cover file registered for ${fileId}`);
                 setIsExtractingMetadata(false);
                 resolve({ metadata, coverFile });
               } else {
-                console.log(`[Cover Art] No embedded cover art found for ${file.name}`);
+                console.log(`[CoverArt] NO picture tag found in tags for ${file.name}. Tags keys:`, Object.keys(tag.tags));
                 setIsExtractingMetadata(false);
                 resolve({ metadata, coverFile: null });
               }
             },
             onError: (error: any) => {
-              console.error('Error reading tags:', error);
+              console.error(`[CoverArt] jsmediatags ERROR for ${file.name}:`, error);
               setIsExtractingMetadata(false);
               resolve({ metadata, coverFile: null });
             }

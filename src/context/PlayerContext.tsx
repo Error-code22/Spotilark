@@ -692,8 +692,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           }
 
           let audioSrc = currentTrack.source_url || '';
+          let isPlayingSnippet = false;
+
           console.log(`[Player] Track: ${currentTrack.title} | Storage: ${currentTrack.storage_type} | ID: ${currentTrack.id}`);
-          console.log(`[Player] Initial Source:`, audioSrc);
+
+          // 0. CHECK FOR INTRO SNIPPET (Phase 2)
+          // If we have snippet_data (Base64) and not cached, use it for instant start
+          const initialCachedBlob = await getCachedTrack(currentTrack.id);
+          if (!initialCachedBlob && (currentTrack as any).snippet_data) {
+            console.log(`[Player] Using 15s INTRO SNIPPET for instant start: ${currentTrack.title}`);
+            audioSrc = (currentTrack as any).snippet_data;
+            isPlayingSnippet = true;
+          }
+
+          console.log(`[Player] Initial Source:`, audioSrc.substring(0, 50));
 
           // Handle YouTube stream resolution
           if (currentTrack.storage_type === 'stream') {
@@ -850,7 +862,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
                   if (blob) {
                     await cacheTrack(currentTrack.id, blob);
-                    console.log(`Track ${currentTrack.title} cached successfully.`);
+                    console.log(`Track ${currentTrack.title} cached successfully. Clearing snippet to save storage...`);
+
+                    // User requested: Remove snippet from DB after local cache is successful
+                    if ((currentTrack as any).snippet_data || (currentTrack as any).snippet_url) {
+                      fetch('/api/save-track-metadata', {
+                        method: 'POST', // Re-using same API to update/clear snippet
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          title: currentTrack.title,
+                          artist: currentTrack.artist,
+                          audioUrl: currentTrack.source_url,
+                          updateOnly: true, // Hint to API to update existing
+                          clearSnippet: true,
+                          trackId: currentTrack.id
+                        })
+                      }).catch(e => console.error("Failed to clear snippet storage:", e));
+                    }
 
                     if ((audio as any)._lastSetId === currentTrack.id && !audio.paused) {
                       const newUrl = URL.createObjectURL(blob);
@@ -878,8 +906,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             console.log(`[Player] Setting Source: ${currentTrack.title} -> ${audioSrc.substring(0, 50)}...`);
             audio.src = audioSrc;
             (audio as any)._lastSetId = currentTrack.id;
+            (audio as any)._isPlayingSnippet = isPlayingSnippet;
             audio.playbackRate = playbackSpeed;
             setDuration(currentTrack.duration || 0);
+
+            // Handle transition from snippet to full stream at 15s mark
+            const handleSnippetTransition = () => {
+              if ((audio as any)._isPlayingSnippet && audio.currentTime >= 14.5) {
+                console.log(`[Player] Transitioning from Snippet to Full Stream for ${currentTrack.title}`);
+                const fullUrl = streamCacheRef.current.get(currentTrack.id) || currentTrack.source_url;
+
+                const currentTime = audio.currentTime;
+                (audio as any)._isPlayingSnippet = false;
+                audio.src = fullUrl;
+                audio.currentTime = currentTime;
+                audio.play();
+              }
+            };
+            audio.removeEventListener('timeupdate', (audio as any)._snippetHandler);
+            (audio as any)._snippetHandler = handleSnippetTransition;
+            audio.addEventListener('timeupdate', handleSnippetTransition);
 
             audio.onerror = (e) => {
               console.error(`[Player] Playback Error [${currentTrack.title}]:`, audio.error);

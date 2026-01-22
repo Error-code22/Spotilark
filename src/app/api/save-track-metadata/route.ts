@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { title, artist, album, genre, audioUrl, videoUrl, cover, duration } = await request.json();
+    const { title, artist, album, genre, audioUrl, videoUrl, cover, duration, snippetUrl, snippetData, updateOnly, clearSnippet, trackId } = await request.json();
 
     if (!title || !artist || !audioUrl) {
       return NextResponse.json({ error: 'Missing required track metadata.' }, { status: 400 });
@@ -13,7 +13,6 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
 
-    // Get the current user session
     // Get current user with fallback
     let { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -36,6 +35,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Title, artist, and audio URL are required and cannot be empty.' }, { status: 400 });
     }
 
+    if (updateOnly) {
+      const updateData: any = {
+        title: trimmedTitle,
+        artist: trimmedArtist,
+        album: album?.trim() || 'Unknown Album',
+        genre: genre?.trim() || 'Unknown Genre',
+        video_url: trimmedVideoUrl,
+        cover: cover || null,
+        duration: Math.round(duration) || 0,
+      };
+
+      if (clearSnippet) {
+        updateData.snippet_url = null;
+        updateData.snippet_data = null;
+      }
+
+      const query = supabase.from('tracks').update(updateData);
+      if (trackId) {
+        query.eq('id', trackId);
+      } else {
+        query.eq('user_id', user.id).eq('source_url', trimmedAudioUrl);
+      }
+
+      const { data, error } = await query.select();
+      if (error) throw error;
+      return NextResponse.json({ success: true, data: data[0] });
+    }
+
     // Validate URL format (allow absolute URLs or relative API paths)
     if (!trimmedAudioUrl.startsWith('/api/')) {
       try {
@@ -55,6 +82,8 @@ export async function POST(request: Request) {
           album: album?.trim() || 'Unknown Album',
           genre: genre?.trim() || 'Unknown Genre',
           source_url: trimmedAudioUrl, // Using source_url to match the database schema
+          snippet_url: snippetUrl || null,
+          snippet_data: snippetData || null,
           video_url: trimmedVideoUrl,
           cover: cover || null,
           duration: Math.round(duration) || 0,
