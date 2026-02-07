@@ -708,43 +708,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           console.log(`[Player] Initial Source:`, audioSrc.substring(0, 50));
 
           // Handle YouTube stream resolution
-          if (currentTrack.storage_type === 'stream') {
+          const isYouTube = currentTrack.storage_type === 'stream' ||
+            (currentTrack.source_url && (currentTrack.source_url.includes('youtube.com') || currentTrack.source_url.includes('youtu.be')));
+
+          if (isYouTube && !isPlayingSnippet) {
             let trackId = '';
             if (typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-')) {
               trackId = currentTrack.id.replace('yt-', '');
-            } else if (currentTrack.source_url && currentTrack.source_url.includes('v=')) {
-              // Extract from /api/stream/youtube?v=... or similar
+            } else {
               try {
                 const url = new URL(currentTrack.source_url, window.location.href);
                 trackId = url.searchParams.get('v') || '';
               } catch (e) {
-                // Fallback extraction
                 const match = currentTrack.source_url.match(/[?&]v=([^&]+)/);
                 if (match) trackId = match[1];
               }
             }
 
             if (trackId) {
-              // Check if we already have a resolved URL in cache
-              if (streamCacheRef.current.has(currentTrack.id)) {
-                audioSrc = streamCacheRef.current.get(currentTrack.id)!;
-                console.log(`[Player] Using cached stream URL for: ${currentTrack.title}`);
-              } else {
-                // Resolve it now
-                try {
-                  console.log(`[Player] Resolving stream for ID: ${trackId} (${currentTrack.title})`);
-                  const resolvedUrl = await resolveYouTubeStream(trackId, streamingQuality);
-                  if (resolvedUrl) {
-                    audioSrc = resolvedUrl;
-                    streamCacheRef.current.set(currentTrack.id, resolvedUrl);
-                    console.log(`[Player] Resolution SUCCESS for: ${currentTrack.title}`);
-                  } else {
-                    throw new Error("Could not resolve stream");
-                  }
-                } catch (e) {
-                  console.error("Stream resolution failed at play time", e);
-                }
-              }
+              console.log(`[Player] Using server proxy for YouTube: ${currentTrack.title}`);
+              audioSrc = `/api/stream/youtube?v=${trackId}`;
             }
           }
 
@@ -762,16 +745,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
             if (fileId) {
               if (streamCacheRef.current.has(currentTrack.id)) {
-                audioSrc = streamCacheRef.current.get(currentTrack.id)!;
-                console.log(`[Player] Using cached Telegram URL for: ${currentTrack.title}`);
+                if (!isPlayingSnippet) {
+                  audioSrc = streamCacheRef.current.get(currentTrack.id)!;
+                  console.log(`[Player] Using cached Telegram URL for: ${currentTrack.title}`);
+                }
               } else {
                 try {
                   console.log(`[Player] Resolving Telegram file: ${currentTrack.title}`);
                   const resolvedUrl = await resolveTelegramLink(fileId);
                   if (resolvedUrl) {
-                    audioSrc = resolvedUrl;
                     streamCacheRef.current.set(currentTrack.id, resolvedUrl);
-                    console.log(`[Player] Telegram Resolution SUCCESS`);
+                    if (!isPlayingSnippet) {
+                      audioSrc = resolvedUrl;
+                      console.log(`[Player] Telegram Resolution SUCCESS`);
+                    } else {
+                      console.log(`[Player] Telegram Resolved but holding for snippet: ${currentTrack.title}`);
+                    }
                   }
                 } catch (e) {
                   console.error("Telegram resolution failed", e);
@@ -820,12 +809,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                   if (streamCacheRef.current.has(currentTrack.id)) {
                     finalUrl = streamCacheRef.current.get(currentTrack.id)!;
                   } else {
+                    // For YouTube streams, use the proxy URL
                     if (currentTrack.storage_type === 'stream') {
                       const trackId = typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-') ?
                         currentTrack.id.replace('yt-', '') : null;
                       if (trackId) {
-                        const resolved = await resolveYouTubeStream(trackId, streamingQuality);
-                        if (resolved) finalUrl = resolved;
+                        finalUrl = `/api/stream/youtube?v=${trackId}`;
                       }
                     } else if (currentTrack.storage_type === 'cloud' && currentTrack.source_url?.includes('storage/stream')) {
                       const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
@@ -881,12 +870,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                     }
 
                     if ((audio as any)._lastSetId === currentTrack.id && !audio.paused) {
+                      console.log(`[Player] Switching to local cache for: ${currentTrack.title}`);
                       const newUrl = URL.createObjectURL(blob);
                       const curTime = audio.currentTime;
+                      const wasPlaying = !audio.paused;
+
+                      const handleMetadata = () => {
+                        audio.currentTime = curTime;
+                        if (wasPlaying) audio.play().catch(() => { });
+                        audio.removeEventListener('loadedmetadata', handleMetadata);
+                      };
+
+                      audio.addEventListener('loadedmetadata', handleMetadata);
                       audio.src = newUrl;
                       (audio as any)._lastBlobUrl = newUrl;
-                      audio.currentTime = curTime;
-                      audio.play();
                     }
                   }
                 } catch (e) {
@@ -905,6 +902,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           if (needsUpdate) {
             console.log(`[Player] Setting Source: ${currentTrack.title} -> ${audioSrc.substring(0, 50)}...`);
             audio.src = audioSrc;
+            audio.load(); // Explicitly load the new source
             (audio as any)._lastSetId = currentTrack.id;
             (audio as any)._isPlayingSnippet = isPlayingSnippet;
             audio.playbackRate = playbackSpeed;
@@ -928,11 +926,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             audio.addEventListener('timeupdate', handleSnippetTransition);
 
             audio.onerror = (e) => {
-              console.error(`[Player] Playback Error [${currentTrack.title}]:`, audio.error);
+              const error = audio.error;
+              let message = "Unknown error";
+              if (error) {
+                switch (error.code) {
+                  case error.MEDIA_ERR_ABORTED: message = "Playback aborted"; break;
+                  case error.MEDIA_ERR_NETWORK: message = "Network error"; break;
+                  case error.MEDIA_ERR_DECODE: message = "Decode error"; break;
+                  case error.MEDIA_ERR_SRC_NOT_SUPPORTED: message = "Source not supported"; break;
+                }
+              }
+              console.error(`[Player] Playback Error [${currentTrack.title}]: ${message}`, error);
+
               // Fallback to source_url if resolved URL failed
-              if (audioSrc !== currentTrack.source_url) {
+              if (audioSrc !== currentTrack.source_url && !isPlayingSnippet) {
                 console.log("[Player] Attempting fallback to original source_url...");
                 audio.src = currentTrack.source_url || '';
+                audio.load();
+                if (isPlaying) audio.play();
               }
             };
 
@@ -943,7 +954,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             }
           }
 
-          if (isPlaying && currentDevice?.is_active) {
+          if (isPlaying && (currentDevice?.is_active || !currentDevice)) {
+            console.log(`[Player] Calling audio.play() for: ${currentTrack.title}. Muted: ${audio.muted}, Volume: ${audio.volume}, ReadyState: ${audio.readyState}`);
             if (playPromiseRef.current) {
               await playPromiseRef.current;
             }
@@ -968,6 +980,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
               }
             }
           } else {
+            console.log(`[Player] Pausing audio. isPlaying: ${isPlaying}, DeviceActive: ${currentDevice?.is_active}`);
             if (playPromiseRef.current) {
               await playPromiseRef.current;
               playPromiseRef.current = null;
@@ -1058,11 +1071,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
               (nextTrack.source_url ? new URL(nextTrack.source_url, window.location.href).searchParams.get('v') : null);
 
             if (trackId) {
-              const resolvedUrl = await resolveYouTubeStream(trackId, streamingQuality);
-              if (resolvedUrl) {
-                streamCacheRef.current.set(nextTrack.id, resolvedUrl);
-                console.log(`[Player] Pre-fetch SUCCESS (YouTube)`);
-              }
+              // For YouTube, we don't resolve client-side anymore.
+              // We just set the proxy URL in the cache so it's ready to go.
+              const proxyUrl = `/api/stream/youtube?v=${trackId}`;
+              streamCacheRef.current.set(nextTrack.id, proxyUrl);
+              console.log(`[Player] Pre-fetch SUCCESS (YouTube Proxy Set)`);
             }
           } catch (e) {
             console.error("YouTube prefetch failed", e);
@@ -1303,10 +1316,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           ? rightTrack.id.replace('yt-', '')
           : null;
         if (trackId) {
-          try {
-            const resolved = await resolveYouTubeStream(trackId, streamingQuality);
-            if (resolved) audioSrc = resolved;
-          } catch (e) { console.error("Right YouTube resolution failed", e); }
+          audioSrc = `/api/stream/youtube?v=${trackId}`;
         }
       }
       // Telegram
@@ -1389,6 +1399,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     cloudLibrary,
     unifiedLibrary,
   };
+
+  // Watchdog: If playing but stuck at 0:00 for too long
+  useEffect(() => {
+    if (!isPlaying || !currentTrack) return;
+
+    const timeout = setTimeout(() => {
+      const audio = audioRef.current;
+      if (audio && isPlaying && audio.currentTime === 0 && audio.readyState < 3) {
+        console.warn(`[Player] Watchdog: Playback stuck for ${currentTrack.title}. ReadyState: ${audio.readyState}. Retrying load...`);
+        audio.load();
+        audio.play().catch(e => console.error("[Player] Watchdog retry failed:", e));
+      }
+    }, 7000); // 7 seconds (generous for slow networks)
+
+    return () => clearTimeout(timeout);
+  }, [isPlaying, currentTrack?.id, currentTime === 0]);
 
   return (
     <PlayerContext.Provider value={value}>

@@ -20,7 +20,7 @@ export function useUser() {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('role')
-            .eq('user_id', user.id)
+            .eq('id', user.id)
             .single();
 
           console.log('[useUser] Fetched profile:', profile, 'Error:', profileError);
@@ -40,17 +40,26 @@ export function useUser() {
 
     fetchUserAndRole();
 
+    // Safety timeout: Ensure loading always finishes after 5 seconds
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.warn('[useUser] Loading timed out after 5s. Forcing isLoading to false.');
+        setIsLoading(false);
+      }
+    }, 5000);
+
     // Set up auth state listener
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const newUser = session?.user ?? null;
+      console.log('[useUser] Auth state change event:', _event, 'User:', newUser?.id);
       setUser(newUser);
 
       if (newUser) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
-          .eq('user_id', newUser.id)
+          .eq('id', newUser.id)
           .single();
         setRole(profile?.role || 'user');
       } else {
@@ -61,6 +70,7 @@ export function useUser() {
     });
 
     return () => {
+      clearTimeout(timeout);
       if (subscription) {
         subscription.unsubscribe();
       }

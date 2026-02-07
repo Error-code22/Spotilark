@@ -194,4 +194,41 @@ Initiated the migration of the `spotilark-app` from a JavaFX-based application t
 - ✅ Local scanning engine is 100% operational.
 - ✅ Offline bypass and network status indicators are live.
 - ✅ Tauri project is initialized and ready for first standalone build.
-- 🚧 Waiting for final computer restart to refresh environment variables for native linker.
+# Project Progress: YouTube Reliability & Streaming Infrastructure
+
+## Date: January 23, 2026
+
+## Completed Features:
+
+1. **Official YouTube Data API v3 Integration**
+   - Replaced fragile scraping methods with the official YouTube Data API.
+   - Restored consistent and accurate search functionality.
+   - Updated search logic to prioritize music categories.
+
+2. **Enforced Server-Side Proxying**
+   - All YouTube streaming is now routed through the internal proxy (`/api/stream/youtube`).
+   - Completely resolved browser CORS and `503 Service Unavailable` errors.
+   - Shielded the client from YouTube's aggressive bot detection.
+
+3. **Multi-Source Fallback System**
+   - Implemented a robust 4-layer resolution chain:
+     *   **Piped Racing**: Primary high-speed proxied streams.
+     *   **ytdl-core**: Standard resolution fallback.
+     *   **Invidious Racing**: Secondary third-party proxy fallback.
+     *   **Cobalt API**: Ultimate fallback for maximum reliability.
+
+4. **Streaming Optimizations**
+   - Optimized default streaming quality to `low` (audio-focused) to save bandwidth and improve load times.
+   - Stabilized the pre-fetching logic for gapless transitions between proxied streams.
+
+## Technical Changes:
+- Modified `src/lib/youtube-utils.ts`: Rewrote stream resolution with aggressive racing and fallbacks.
+- Updated `src/app/api/stream/youtube/route.ts`: Integrated the new multi-source resolution logic.
+- Updated `src/app/api/search/remote/route.ts`: Switched to official YouTube Data API v3.
+- Standardized environment variable usage for API keys.
+
+## Current Status:
+- ✅ YouTube search and playback are fully operational and stable.
+- ✅ Server proxying successfully bypasses client-side restrictions.
+- 🚧 Investigating UI regression reports regarding "Split Audio" features.
+- 🚧 Validating cross-project sync between `spotilark-web` and `spotilark-app`.

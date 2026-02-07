@@ -66,9 +66,49 @@ export async function GET(req: NextRequest) {
     console.log(`[SearchRemote] DEEP SEARCH for: ${query}`);
 
     try {
-        // --- 1. Primary: yt-search (Scraper) ---
+        // --- 1. PRIMARY: YouTube Data API v3 (Official) ---
+        const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+        if (youtubeApiKey) {
+            try {
+                console.log(`[SearchRemote] Attempting YouTube Data API v3...`);
+                const youtubeUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=30&key=${youtubeApiKey}`;
+
+                const res = await fetch(youtubeUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    const videos = data.items || [];
+
+                    if (videos.length > 0) {
+                        console.log(`[SearchRemote] YouTube Data API SUCCESS: found ${videos.length} results`);
+                        const tracks = videos.map((item: any) => ({
+                            id: `yt-${item.id.videoId}`,
+                            remoteId: item.id.videoId,
+                            title: item.snippet.title,
+                            artist: item.snippet.channelTitle,
+                            album: "YouTube",
+                            cover: item.snippet.thumbnails?.medium?.url ||
+                                item.snippet.thumbnails?.default?.url ||
+                                `https://i.ytimg.com/vi/${item.id.videoId}/mqdefault.jpg`,
+                            duration: 0, // Duration requires additional API call
+                            source: 'youtube',
+                            storage_type: 'stream',
+                            source_url: `/api/stream/youtube?v=${item.id.videoId}`
+                        }));
+                        return NextResponse.json(tracks);
+                    }
+                } else {
+                    console.error(`[SearchRemote] YouTube Data API error: ${res.status} ${res.statusText}`);
+                }
+            } catch (apiError: any) {
+                console.error(`[SearchRemote] YouTube Data API FAILED: ${apiError.message}`);
+            }
+        } else {
+            console.log(`[SearchRemote] YouTube API key not configured, skipping official API`);
+        }
+
+        // --- 2. FALLBACK: yt-search (Scraper) ---
         try {
-            console.log(`[SearchRemote] Attempting yt-search scraper...`);
+            console.log(`[SearchRemote] Falling back to yt-search scraper...`);
             const r = await yts(query);
             const videos = r.videos || [];
 
@@ -92,7 +132,7 @@ export async function GET(req: NextRequest) {
             console.error(`[SearchRemote] Scraper FAILED: ${scraperError.message}`);
         }
 
-        // --- 2. Fallback: Piped (Batch of 8) ---
+        // --- 3. Fallback: Piped (Batch of 8) ---
         console.log(`[SearchRemote] Scraper failed or empty. Falling back to Piped racing...`);
         const pipedPool = shuffle(PIPED_INSTANCES);
         const pipedResult = await raceSearchDeep(
@@ -120,7 +160,7 @@ export async function GET(req: NextRequest) {
             if (tracks.length > 0) return NextResponse.json(tracks.slice(0, 20));
         }
 
-        // --- 3. Final Fallback: Invidious ---
+        // --- 4. Final Fallback: Invidious ---
         console.log(`[SearchRemote] Piped failed. Racing Invidious...`);
         const invidPool = shuffle(INVIDIOUS_INSTANCES);
         const invidResult = await raceSearchDeep(

@@ -1,5 +1,8 @@
-
 import { NextResponse } from 'next/server';
+
+// Simple in-memory cache for file paths to speed up subsequent range requests
+const filePathCache = new Map<string, { path: string; expires: number }>();
+const CACHE_TTL = 1000 * 60 * 30; // 30 minutes
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -11,19 +14,27 @@ export async function GET(request: Request) {
     }
 
     try {
-        console.log(`[Telegram API Proxy] Getting file path for: ${fileId.substring(0, 10)}...`);
-        // 1. Get file path
-        const getFileUrl = `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`;
-        const getFileResponse = await fetch(getFileUrl);
-        const getFileData = await getFileResponse.json();
+        let filePath = '';
+        const cached = filePathCache.get(fileId);
+        if (cached && cached.expires > Date.now()) {
+            filePath = cached.path;
+            console.log(`[Telegram API Proxy] Using cached path: ${filePath}`);
+        } else {
+            console.log(`[Telegram API Proxy] Getting file path for: ${fileId.substring(0, 10)}...`);
+            // 1. Get file path
+            const getFileUrl = `https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`;
+            const getFileResponse = await fetch(getFileUrl);
+            const getFileData = await getFileResponse.json();
 
-        if (!getFileData.ok || !getFileData.result?.file_path) {
-            console.error('[Telegram API Proxy] getFile failed:', getFileData);
-            return NextResponse.json({ error: 'Failed to get file path', detail: getFileData }, { status: 500 });
+            if (!getFileData.ok || !getFileData.result?.file_path) {
+                console.error('[Telegram API Proxy] getFile failed:', getFileData);
+                return NextResponse.json({ error: 'Failed to get file path', detail: getFileData }, { status: 500 });
+            }
+
+            filePath = getFileData.result.file_path;
+            filePathCache.set(fileId, { path: filePath, expires: Date.now() + CACHE_TTL });
+            console.log(`[Telegram API Proxy] Success! File path: ${filePath}`);
         }
-
-        const filePath = getFileData.result.file_path;
-        console.log(`[Telegram API Proxy] Success! File path: ${filePath}`);
         const directLink = `https://api.telegram.org/file/bot${token}/${filePath}`;
 
         // 2. Fetch the actual file with range support
@@ -47,6 +58,7 @@ export async function GET(request: Request) {
         headers.set('Content-Type', fileResponse.headers.get('Content-Type') || 'audio/mpeg');
         headers.set('Cache-Control', 'public, max-age=3600');
         headers.set('Accept-Ranges', 'bytes');
+        headers.set('Access-Control-Allow-Origin', '*');
 
         const contentRange = fileResponse.headers.get('Content-Range');
         const contentLength = fileResponse.headers.get('Content-Length');

@@ -10,17 +10,28 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        console.log(`[YoutubeStreamAPI] Resolving stream for: ${videoId} (Quality: ${quality})`);
         const audioUrl = await resolveYouTubeStream(videoId, quality);
 
         if (!audioUrl) {
-            throw new Error("Could not resolve audio stream from any network");
+            console.error(`[YoutubeStreamAPI] Resolution FAILED for: ${videoId}`);
+            return NextResponse.json({
+                error: "YouTube resolution failed",
+                details: "All proxy instances returned errors. YouTube might be blocking requests.",
+                videoId
+            }, { status: 503 });
         }
+
+        console.log(`[YoutubeStreamAPI] Resolution SUCCESS: Proxied stream starting for ${videoId}...`);
 
         // --- Proxy the Stream ---
         const range = req.headers.get('range');
         const proxyHeaders = new Headers();
         if (range) proxyHeaders.set('Range', range);
+
+        // Stealth headers for the final stream fetch
         proxyHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        proxyHeaders.set('Referer', 'https://www.youtube.com/');
 
         const audioResponse = await fetch(audioUrl, {
             headers: proxyHeaders,
@@ -28,6 +39,7 @@ export async function GET(req: NextRequest) {
         });
 
         if (!audioResponse.ok && audioResponse.status !== 206) {
+            console.error(`[YoutubeStreamAPI] Source stream fetch FAILED: ${audioResponse.status} for ${audioUrl}`);
             throw new Error(`Source Error: ${audioResponse.status}`);
         }
 
@@ -49,7 +61,7 @@ export async function GET(req: NextRequest) {
         });
 
     } catch (error: any) {
-        console.error("Stream Resolve Error:", error);
-        return NextResponse.json({ error: "Failed to resolve stream" }, { status: 500 });
+        console.error("[YoutubeStreamAPI] INTERNAL ERROR:", error);
+        return NextResponse.json({ error: "Failed to resolve stream", message: error.message }, { status: 500 });
     }
 }
