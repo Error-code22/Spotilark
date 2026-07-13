@@ -6,6 +6,8 @@ import { SettingsProvider } from "@/context/SettingsContext";
 import { Providers } from "@/context/Providers";
 import LayoutContent from "@/components/LayoutContent";
 
+export const dynamic = 'force-dynamic';
+
 const caveat = localFont({
   src: [
     {
