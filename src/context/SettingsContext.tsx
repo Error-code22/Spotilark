@@ -20,6 +20,8 @@ type SettingsContextType = {
   setPlayVideoAsAudio: (v: boolean) => void;
   normalizeAudio: boolean;
   setNormalizeAudio: (v: boolean) => void;
+  showRecentlyPlayed: boolean;
+  setShowRecentlyPlayed: (v: boolean) => void;
   clearCache: (keepLyrics?: boolean) => Promise<void>;
 };
 
@@ -42,6 +44,8 @@ const defaultSettings: SettingsContextType = {
   setPlayVideoAsAudio: () => { },
   normalizeAudio: true,
   setNormalizeAudio: () => { },
+  showRecentlyPlayed: true,
+  setShowRecentlyPlayed: () => { },
   clearCache: async () => { },
 };
 
@@ -84,6 +88,8 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setPlayVideoAsAudio: (v) => setSetting("playVideoAsAudio", v),
     normalizeAudio: settings.normalizeAudio ?? true,
     setNormalizeAudio: (v) => setSetting("normalizeAudio", v),
+    showRecentlyPlayed: settings.showRecentlyPlayed ?? true,
+    setShowRecentlyPlayed: (v) => setSetting("showRecentlyPlayed", v),
     clearCache: async (keepLyrics?: boolean) => {
       try {
         const { clearAllStorage } = await import("@/lib/storage-service");
