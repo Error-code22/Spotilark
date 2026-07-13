@@ -22,6 +22,16 @@ type SettingsContextType = {
   setNormalizeAudio: (v: boolean) => void;
   showRecentlyPlayed: boolean;
   setShowRecentlyPlayed: (v: boolean) => void;
+  audioNormalization: boolean;
+  setAudioNormalization: (v: boolean) => void;
+  automix: boolean;
+  setAutomix: (v: boolean) => void;
+  gaplessPlayback: boolean;
+  setGaplessPlayback: (v: boolean) => void;
+  downloadQuality: string;
+  setDownloadQuality: (v: string) => void;
+  shareListeningActivity: boolean;
+  setShareListeningActivity: (v: boolean) => void;
   clearCache: (keepLyrics?: boolean) => Promise<void>;
 };
 
@@ -46,6 +56,16 @@ const defaultSettings: SettingsContextType = {
   setNormalizeAudio: () => { },
   showRecentlyPlayed: true,
   setShowRecentlyPlayed: () => { },
+  audioNormalization: true,
+  setAudioNormalization: () => { },
+  automix: false,
+  setAutomix: () => { },
+  gaplessPlayback: false,
+  setGaplessPlayback: () => { },
+  downloadQuality: "high",
+  setDownloadQuality: () => { },
+  shareListeningActivity: false,
+  setShareListeningActivity: () => { },
   clearCache: async () => { },
 };
 
@@ -90,6 +110,16 @@ export const SettingsProvider = ({ children }: { children: React.ReactNode }) =>
     setNormalizeAudio: (v) => setSetting("normalizeAudio", v),
     showRecentlyPlayed: settings.showRecentlyPlayed ?? true,
     setShowRecentlyPlayed: (v) => setSetting("showRecentlyPlayed", v),
+    audioNormalization: settings.audioNormalization ?? true,
+    setAudioNormalization: (v) => setSetting("audioNormalization", v),
+    automix: settings.automix ?? false,
+    setAutomix: (v) => setSetting("automix", v),
+    gaplessPlayback: settings.gaplessPlayback ?? false,
+    setGaplessPlayback: (v) => setSetting("gaplessPlayback", v),
+    downloadQuality: settings.downloadQuality ?? "high",
+    setDownloadQuality: (v) => setSetting("downloadQuality", v),
+    shareListeningActivity: settings.shareListeningActivity ?? false,
+    setShareListeningActivity: (v) => setSetting("shareListeningActivity", v),
     clearCache: async (keepLyrics?: boolean) => {
       try {
         const { clearAllStorage } = await import("@/lib/storage-service");
