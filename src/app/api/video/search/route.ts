@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = 'force-dynamic';
 import { execSync } from "child_process";
 import { YTDLP_PATH } from "@/lib/binary-paths";
 
