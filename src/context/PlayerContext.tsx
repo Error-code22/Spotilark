@@ -12,30 +12,12 @@ import React, {
 } from "react";
 import { useSettings } from "./SettingsContext";
 import { fetchLyrics } from "@/lib/lyrics";
-import { getCachedTrack, cacheTrack, saveCoversBatch, getCover, saveLocalLibrary, loadLocalLibrary } from "@/lib/cache-utils";
-import {
-  storeAudioBlob, loadAudioBlob, deleteAudioFile,
-  saveTrackMetadata, loadTrackMetadata, deleteTrackMetadata,
-  saveCover as saveCoverNative, loadCover as loadCoverNative, saveCoversBatch as saveCoversBatchNative,
-  clearAllStorage
-} from "@/lib/storage-service";
+import { getCachedTrack, cacheTrack } from "@/lib/cache-utils";
+import { updatePresence } from "@/lib/presence-utils";
 import { resolveYouTubeStream } from "@/lib/youtube-utils";
+import { resolveTelegramLink } from "@/lib/telegram-client";
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { useDevices } from "./DeviceContext";
-import {
-  initCapacitorAudio,
-  updateMediaNotification,
-  onMediaControlPause,
-  onMediaControlNext,
-  onMediaControlPrev,
-  setCapacitorAudioPlaying,
-  destroyCapacitorAudio,
-} from "@/lib/capacitor-audio";
-import dynamic from "next/dynamic";
-
-const PlayerAudio = dynamic(() => import("@/components/PlayerAudio"), {
-  ssr: false,
-});
 
 type RepeatMode = "off" | "all" | "one";
 
@@ -66,7 +48,6 @@ interface PlayerContextType {
   likedTrackIds: Set<string>;
   playTrack: (track: Track) => void;
   playTrackFromQueue: (index: number) => void;
-  reorderQueue: (fromIndex: number, toIndex: number) => void;
   updateTrackLyrics: (trackId: string, lyrics: Lyric[]) => void;
   splitAudioEnabled: boolean;
   setSplitAudioEnabled: (enabled: boolean) => void;
@@ -83,15 +64,8 @@ interface PlayerContextType {
   toggleLyricsView: () => void;
   localLibrary: Track[];
   addLocalTracks: (tracks: Track[], files?: File[]) => Promise<void>;
-  removeLocalTracks: (trackIds: string[]) => Promise<void>;
   cloudLibrary: Track[];
   unifiedLibrary: Track[];
-  sleepTimerEnd: number | null;
-  sleepTimerRemaining: number | null;
-  setSleepTimer: (minutes: number | null) => void;
-  recentlyPlayed: Track[];
-  playCounts: Record<string, number>;
-  getPlayCount: (trackId: string) => number;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -102,230 +76,45 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   refetch,
 }) => {
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log("%c Spotilark Playback Fix V1.8 (Tauri HTTP) Active ", "background: #222; color: #bada55; font-size: 16px;");
-    }
+    console.log("%c Spotilark Playback Fix V1.8 (Tauri HTTP) Active ", "background: #222; color: #bada55; font-size: 16px;");
   }, []);
   const [cloudLibrary, setCloudLibrary] = useState<Track[]>([]);
   const [localLibrary, setLocalLibrary] = useState<Track[]>([]);
   const [trackQueue, setTrackQueue] = useState<Track[]>([]);
   const [isLyricsViewOpen, setIsLyricsViewOpen] = useState(false);
 
-  // Load local library from platform storage
+  // Load local library from storage
   useEffect(() => {
-    (async () => {
-      const isNative = Capacitor.isNativePlatform();
-
-      // Load metadata from platform storage
-      let saved = await loadTrackMetadata();
-
-      // Fallback: migrate from localStorage (web only)
-      if (!isNative && (!saved || saved.length === 0)) {
-        const lsData = localStorage.getItem('spotilark-local-library');
-        if (lsData) {
-          try {
-            saved = JSON.parse(lsData);
-            await saveTrackMetadata(saved);
-            localStorage.removeItem('spotilark-local-library');
-            console.log('[Player] Migrated local library to platform storage');
-          } catch {}
-        }
+    const saved = localStorage.getItem('spotilark-local-library');
+    if (saved) {
+      try {
+        setLocalLibrary(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to load local library", e);
       }
-
-      if (saved && saved.length > 0) {
-        const cleaned = saved.map((track: any) => ({
-          ...track,
-          source_url: track.source_url?.startsWith('blob:') ? '' : (track.source_url || ''),
-          coverPath: track.coverPath || '',
-          sourcePath: track.sourcePath || '',
-          cover: track.cover && track.cover.startsWith('blob:')
-            ? '/spotilark-without-text-white.png'
-            : track.cover || '/spotilark-without-text-white.png',
-        }));
-        setLocalLibrary(cleaned);
-
-        // Restore covers in batch to avoid React state batching race conditions
-        (async () => {
-          console.log(`[Player] Starting batch cover restoration for ${cleaned.length} tracks...`);
-          const restorePromises = cleaned.map(async (track: any) => {
-            const needsRestore = !track.cover ||
-              track.cover === '/spotilark-without-text-white.png' ||
-              track.cover.endsWith('...');
-            if (needsRestore) {
-              console.log(`[Player] Restoring cover for track: ${track.title} (ID: ${track.id})`);
-              try {
-                const realCover = await loadCoverNative(track.id, track.coverPath);
-                console.log(`[Player] Loaded cover for ${track.title}: ${realCover ? realCover.substring(0, 100) + '...' : 'NULL'}`);
-                if (realCover) {
-                  return { id: track.id, cover: realCover };
-                }
-              } catch (err) {
-                console.error(`[Player] Failed to load cover for ${track.title}:`, err);
-              }
-            }
-            return null;
-          });
-
-          const restoredCovers = await Promise.all(restorePromises);
-          const coverMap = new Map<string, string>();
-          restoredCovers.forEach(item => {
-            if (item) {
-              coverMap.set(item.id, item.cover);
-            }
-          });
-
-          console.log(`[Player] Successfully restored ${coverMap.size} cover images.`);
-
-          if (coverMap.size > 0) {
-            setLocalLibrary(prev => {
-              const updated = prev.map(t => {
-                const newCover = coverMap.get(t.id);
-                return newCover ? { ...t, cover: newCover } : t;
-              });
-              console.log(`[Player] Updated local library state with restored covers.`);
-              return updated;
-            });
-          }
-        })();
-      }
-    })();
+    }
   }, []);
 
   const addLocalTracks = useCallback(async (newTracks: Track[], files?: File[]) => {
-    const isNative = Capacitor.isNativePlatform();
-
-    // 0. Deduplicate — skip tracks that already exist (by filename + size)
-    const existingIds = new Set(localLibrary.map(t => t.id));
-    const filteredTracks: Track[] = [];
-    const filteredFiles: File[] = [];
-    for (let i = 0; i < newTracks.length; i++) {
-      const track = newTracks[i];
-      const file = files?.[i];
-      if (file) {
-        const dedupeKey = `${file.name}-${file.size}`;
-        const isDuplicate = localLibrary.some(t => {
-          const tDedupeKey = (t as any).dedupeKey;
-          return tDedupeKey === dedupeKey;
-        });
-        if (isDuplicate) {
-          console.log(`[Player] Skipping duplicate: ${file.name}`);
-          continue;
-        }
-        (track as any).dedupeKey = dedupeKey;
-      }
-      if (!existingIds.has(track.id)) {
-        filteredTracks.push(track);
-        if (file) filteredFiles.push(file);
-      }
-    }
-
-    if (filteredTracks.length === 0) {
-      console.log(`[Player] All tracks are duplicates, nothing to add`);
-      return;
-    }
-
-    // 1. Store audio blobs
-    const sourcePaths: Record<string, string> = {};
-    if (filteredFiles.length > 0) {
-      console.log(`[Player] Storing ${filteredFiles.length} audio files...`);
-      for (let i = 0; i < filteredFiles.length; i++) {
-        const file = filteredFiles[i];
-        const track = filteredTracks[i];
+    // 1. Immediately cache blood for files if provided
+    if (files && files.length > 0) {
+      console.log(`[Player] Caching ${files.length} local files...`);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const track = newTracks[i];
         if (track && file) {
-          const originalPath = (file as any).path || undefined;
-          const path = await storeAudioBlob(track.id, file, originalPath);
-          sourcePaths[track.id] = path;
+          await cacheTrack(track.id, file);
         }
       }
     }
-
-    // 2. Save covers to separate storage
-    const coverMap: Record<string, string> = {};
-    filteredTracks.forEach(track => {
-      if (track.cover && track.cover.startsWith('data:')) {
-        coverMap[track.id] = track.cover;
-      }
-    });
-    if (Object.keys(coverMap).length > 0) {
-      await saveCoversBatchNative(coverMap);
-    }
-
-    const tracksWithStableCovers = filteredTracks.map(track => ({
-      ...track,
-      cover: track.cover && track.cover.startsWith('blob:')
-        ? '/spotilark-without-text-white.png'
-        : track.cover || '/spotilark-without-text-white.png'
-    }));
 
     setLocalLibrary(prev => {
-      const updated = [...prev, ...tracksWithStableCovers];
+      const updated = [...prev, ...newTracks];
+      // Filter out potential duplicates based on ID
       const unique = Array.from(new Map(updated.map(t => [t.id, t])).values());
-
-      // Build a lookup of existing persisted data to preserve it for tracks not in this batch
-      const prevMetaMap = new Map<string, any>();
-      for (const t of prev) {
-        prevMetaMap.set(t.id, {
-          sourcePath: (t as any).sourcePath || '',
-          source_url: t.source_url || '',
-          coverPath: (t as any).coverPath || '',
-        });
-      }
-
-      // Build metadata for storage — preserve existing data for tracks not in this upload batch
-      const metadata = unique.map(t => {
-        const existing = prevMetaMap.get(t.id);
-        const hasStoredCover = !!coverMap[t.id];
-        return {
-          ...t,
-          sourcePath: sourcePaths[t.id] || (existing?.sourcePath || ''),
-          coverPath: hasStoredCover ? `covers/${t.id}.jpg` : (existing?.coverPath || (t as any).coverPath || ''),
-          source_url: sourcePaths[t.id] ? (t.source_url || '') : (existing?.source_url || t.source_url || ''),
-          cover: t.cover || '/spotilark-without-text-white.png',
-          extra: {}
-        };
-      });
-
-      // Save to platform storage
-      saveTrackMetadata(metadata).catch(e => console.error('[Player] Failed to save metadata:', e));
-
-      // Also try localStorage as web backup
-      if (!isNative) {
-        try { localStorage.setItem('spotilark-local-library', JSON.stringify(metadata)); } catch {}
-      }
-
+      localStorage.setItem('spotilark-local-library', JSON.stringify(unique));
       return unique;
     });
-  }, []);
-
-  const removeLocalTracks = useCallback(async (trackIds: string[]) => {
-    const idSet = new Set(trackIds);
-    const isNative = Capacitor.isNativePlatform();
-
-    setLocalLibrary(prev => {
-      const remaining = prev.filter(t => !idSet.has(t.id));
-
-      const metadata = remaining.map(t => ({
-        ...t,
-        sourcePath: (t as any).sourcePath || '',
-        source_url: t.source_url || '',
-        coverPath: (t as any).coverPath || '',
-        cover: t.cover || '/spotilark-without-text-white.png',
-        extra: {}
-      }));
-
-      saveTrackMetadata(metadata).catch(e => console.error('[Player] Failed to save metadata:', e));
-
-      if (!isNative) {
-        try { localStorage.setItem('spotilark-local-library', JSON.stringify(metadata)); } catch {}
-      }
-
-      return remaining;
-    });
-
-    for (const trackId of trackIds) {
-      try { await deleteTrackMetadata(trackId); } catch {}
-      try { await deleteAudioFile(trackId); } catch {}
-    }
   }, []);
 
   // Derive Unified Library
@@ -357,8 +146,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
     setUnifiedLibrary(sorted);
 
-    // Only initialize trackQueue if it's empty (don't overwrite user-modified queue)
+    // Update trackQueue if it was empty or matching previous tracks
     setTrackQueue(prev => {
+      // If queue is empty, default to unified
       if (prev.length === 0) return sorted;
       return prev;
     });
@@ -382,12 +172,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [likedTrackIds, setLikedTrackIds] = useState<Set<string>>(new Set());
-  const [sleepTimerEnd, setSleepTimerEnd] = useState<number | null>(null);
-  const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
-  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
-  const [playCounts, setPlayCounts] = useState<Record<string, number>>({});
 
-  const { crossfade, crossfadeDuration, playbackSpeed, streamingQuality, normalizeAudio } = useSettings();
+  const { crossfade, crossfadeDuration, playbackSpeed, audioNormalization, automix, gaplessPlayback, streamingQuality, downloadQuality, shareListeningActivity } = useSettings();
   const { currentDevice, activePlayerDevice, registerDevice, activateDevice, updatePlaybackState, sendCommand } = useDevices();
   const [user, setUser] = useState<any>(null);
 
@@ -460,15 +246,51 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         audioCtxRef.current = ctx;
         sourceNodeRef.current = source;
 
-        // Connect directly to destination
-        source.connect(ctx.destination);
+        const compressor = ctx.createDynamicsCompressor();
+        // Standard settings for audio normalization
+        compressor.threshold.value = -24;
+        compressor.knee.value = 30;
+        compressor.ratio.value = 12;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.25;
+        compressorNodeRef.current = compressor;
+
+        // Initial connection
+        if (audioNormalization) {
+          source.connect(compressor).connect(ctx.destination);
+        } else {
+          source.connect(ctx.destination);
+        }
       }
     };
 
     // Initialize on first user interaction or when needed
     document.addEventListener('click', initAudioContext, { once: true });
     return () => document.removeEventListener('click', initAudioContext);
-  }, []);
+  }, [audioNormalization]);
+
+
+  // Handle Normalization Toggle
+  useEffect(() => {
+    if (audioCtxRef.current && sourceNodeRef.current && compressorNodeRef.current) {
+      const source = sourceNodeRef.current;
+      const compressor = compressorNodeRef.current;
+      const ctx = audioCtxRef.current;
+
+      try {
+        source.disconnect();
+        compressor.disconnect();
+
+        if (audioNormalization) {
+          source.connect(compressor).connect(ctx.destination);
+        } else {
+          source.connect(ctx.destination);
+        }
+      } catch (e) {
+        console.error("Error toggling normalization:", e);
+      }
+    }
+  }, [audioNormalization]);
 
 
   useEffect(() => {
@@ -531,15 +353,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     setIsNowPlayingOpen(prev => !prev);
   }, []);
 
-  const setSleepTimer = useCallback((minutes: number | null) => {
-    if (minutes === null) {
-      setSleepTimerEnd(null);
-      setSleepTimerRemaining(null);
-    } else {
-      setSleepTimerEnd(Date.now() + minutes * 60 * 1000);
-    }
-  }, []);
-
   const play = useCallback(async (index: number) => {
     if (index >= 0 && index < trackQueue.length) {
       // Remote Control Logic
@@ -552,7 +365,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       }
 
       // Automix/Crossfade Transition
-      if (isPlaying && (crossfade || crossfade) && audioRef.current && !audioRef.current.paused) {
+      if (isPlaying && (crossfade || automix) && audioRef.current && !audioRef.current.paused) {
         const audio = audioRef.current;
         const fadeOutDuration = crossfadeDuration;
 
@@ -574,16 +387,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       // Reset tracking for new song
       playTimeRef.current = 0;
 
-      setRecentlyPlayed(prev => {
-        const track = trackQueue[index];
-        const filtered = prev.filter(t => t.id !== track.id);
-        return [track, ...filtered].slice(0, 50);
-      });
-
       setCurrentTrackIndex(index);
       setIsPlaying(true);
     }
-  }, [trackQueue.length, isPlaying, crossfade, crossfade, crossfadeDuration, activePlayerDevice, currentDevice?.is_active, sendCommand]);
+  }, [trackQueue.length, isPlaying, crossfade, automix, crossfadeDuration, activePlayerDevice, currentDevice?.is_active, sendCommand]);
 
   const playTrack = useCallback(async (track: Track) => {
     // Remote Control Logic
@@ -594,11 +401,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       return;
     }
 
-    setRecentlyPlayed(prev => {
-      const filtered = prev.filter(t => t.id !== track.id);
-      return [track, ...filtered].slice(0, 50);
-    });
-
     // Find the index of this track in the current queue
     const trackIndex = trackQueue.findIndex(t => t.id === track.id);
 
@@ -607,32 +409,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       setCurrentTrackIndex(trackIndex);
       setIsPlaying(true);
     } else {
-      // Add track to queue and play it in one batch
-      const newQueue = [...trackQueue, track];
-      setTrackQueue(newQueue);
-      setCurrentTrackIndex(newQueue.length - 1);
+      // If the track doesn't exist in the queue, temporarily add it and play
+      // We'll set the queue to include just this track as the only item
+      setTrackQueue([track]);
+      setCurrentTrackIndex(0);
       setIsPlaying(true);
     }
   }, [trackQueue, activePlayerDevice, currentDevice?.is_active, sendCommand]);
-
-  const reorderQueue = useCallback((fromIndex: number, toIndex: number) => {
-    setTrackQueue(prev => {
-      const newQueue = [...prev];
-      const [moved] = newQueue.splice(fromIndex, 1);
-      newQueue.splice(toIndex, 0, moved);
-      // Adjust currentTrackIndex if needed
-      if (currentTrackIndex !== null) {
-        if (fromIndex === currentTrackIndex) {
-          setCurrentTrackIndex(toIndex);
-        } else if (fromIndex < currentTrackIndex && toIndex >= currentTrackIndex) {
-          setCurrentTrackIndex(currentTrackIndex - 1);
-        } else if (fromIndex > currentTrackIndex && toIndex <= currentTrackIndex) {
-          setCurrentTrackIndex(currentTrackIndex + 1);
-        }
-      }
-      return newQueue;
-    });
-  }, [currentTrackIndex]);
 
   const playNext = useCallback(() => {
     if (trackQueue.length === 0) return;
@@ -690,17 +473,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     if (currentTrackIndex === null && trackQueue.length > 0) {
       play(0);
     } else if (currentTrack) {
-      const newPlaying = !isPlaying;
-      setIsPlaying(newPlaying);
-      // Directly control audio element for immediate response
-      const audioEl = document.querySelector('audio');
-      if (audioEl) {
-        if (newPlaying) {
-          audioEl.play().catch(() => {});
-        } else {
-          audioEl.pause();
-        }
-      }
+      setIsPlaying((prev) => !prev);
     }
   }, [currentTrackIndex, trackQueue.length, play, currentTrack, activePlayerDevice, currentDevice?.is_active, sendCommand, isPlaying]);
 
@@ -724,37 +497,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       }
 
       if (e.code === 'Space') {
-        e.preventDefault();
+        e.preventDefault(); // Prevent scrolling
         togglePlayPause();
       } else if (e.code === 'KeyN') {
         playNext();
       } else if (e.code === 'KeyP') {
         playPrev();
       } else if (e.code === 'KeyM') {
-        setVolume((prev) => (prev > 0 ? 0 : 0.5));
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        seekBy(-10);
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        seekBy(10);
-      } else if (e.code === 'KeyS') {
-        toggleShuffle();
-      } else if (e.code === 'KeyR') {
-        toggleRepeat();
-      } else if (e.code === 'KeyL') {
-        toggleLyricsView();
-      } else if (e.code === 'KeyQ') {
-        // Toggle queue — handled by event
-        window.dispatchEvent(new CustomEvent('spotilark-toggle-queue'));
-      } else if (e.code === 'KeyF') {
-        window.dispatchEvent(new CustomEvent('spotilark-toggle-nowplaying'));
+        setVolume((prev) => (prev > 0 ? 0 : 0.5)); // Mute or restore to 50%
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayPause, playNext, playPrev, seekBy, toggleShuffle, toggleRepeat, toggleLyricsView]);
+  }, [togglePlayPause, playNext, playPrev]);
+
+  // Heartbeat presence when settings or track changes
+  useEffect(() => {
+    if (user && shareListeningActivity) {
+      updatePresence(user.id, currentTrack, isPlaying, shareListeningActivity);
+    }
+  }, [user, currentTrack, isPlaying, shareListeningActivity]);
+
+
 
   useEffect(() => {
     // In a real app, you would load the track queue from local storage here.
@@ -909,68 +674,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     }
   }, [volume]);
 
-  // Audio normalization — analyze loudness and adjust gain
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const normalizationGainRef = useRef<GainNode | null>(null);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !normalizeAudio) return;
-
-    const handleCanPlay = async () => {
-      try {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new AudioContext();
-        }
-        const ctx = audioContextRef.current;
-        if (ctx.state === 'suspended') await ctx.resume();
-
-        // Only create new nodes if not already connected
-        if (!normalizationGainRef.current) {
-          const source = ctx.createMediaElementSource(audio);
-          const gain = ctx.createGain();
-          source.connect(gain);
-          gain.connect(ctx.destination);
-          normalizationGainRef.current = gain;
-        }
-
-        // Analyze a short sample to measure loudness
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048;
-        const tempSource = ctx.createMediaElementSource(audio);
-        tempSource.connect(analyser);
-        analyser.connect(ctx.destination);
-
-        // Wait a bit for audio to load, then measure
-        setTimeout(() => {
-          try {
-            const dataArray = new Float32Array(analyser.fftSize);
-            analyser.getFloatTimeDomainData(dataArray);
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-              sum += dataArray[i] * dataArray[i];
-            }
-            const rms = Math.sqrt(sum / dataArray.length);
-            // Target RMS ~0.1 (comfortable listening level)
-            const targetRMS = 0.1;
-            const gainValue = Math.min(2, Math.max(0.1, targetRMS / (rms || 0.1)));
-            if (normalizationGainRef.current) {
-              normalizationGainRef.current.gain.setValueAtTime(gainValue, ctx.currentTime);
-            }
-            console.log(`[Player] Normalization: RMS=${rms.toFixed(3)}, Gain=${gainValue.toFixed(2)}`);
-          } catch {}
-          // Disconnect temp source to avoid double playback
-          try { tempSource.disconnect(); analyser.disconnect(); } catch {}
-        }, 500);
-      } catch (e) {
-        console.warn('[Player] Normalization failed:', e);
-      }
-    };
-
-    audio.addEventListener('canplay', handleCanPlay);
-    return () => audio.removeEventListener('canplay', handleCanPlay);
-  }, [currentTrack?.id, normalizeAudio]);
-
   // Sync playback state
   const playPromiseRef = useRef<Promise<void> | null>(null);
   const cacheTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -990,111 +693,89 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
           let audioSrc = currentTrack.source_url || '';
           let isPlayingSnippet = false;
-          const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
 
-          console.log(`[Player] Track: ${currentTrack.title} | Storage: ${currentTrack.storage_type} | ID: ${currentTrack.id} | source_url: ${currentTrack.source_url?.substring(0, 50)} | sourcePath: ${(currentTrack as any).sourcePath} | isElectron: ${isElectron}`);
+          console.log(`[Player] Track: ${currentTrack.title} | Storage: ${currentTrack.storage_type} | ID: ${currentTrack.id}`);
 
-          // ========================================
-          // LOCAL TRACKS: Simple path — load from filesystem or IndexedDB
-          // ========================================
-          if (currentTrack.storage_type === 'local') {
-            const sourcePath = (currentTrack as any).sourcePath || '';
-
-            // Electron: play directly from file path using local-audio:// protocol
-            if (isElectron && sourcePath && !sourcePath.startsWith('idb://')) {
-              console.log(`[Player] Electron local-audio: ${sourcePath.substring(0, 80)}`);
-              audioSrc = `local-audio://${encodeURIComponent(sourcePath)}`;
-            } else if (isElectron && currentTrack.source_url && !currentTrack.source_url.startsWith('blob:') && !currentTrack.source_url.startsWith('idb://')) {
-              // Fallback: source_url has a raw file path, convert to local-audio://
-              console.log(`[Player] Electron fallback source_url: ${currentTrack.source_url.substring(0, 80)}`);
-              audioSrc = `local-audio://${encodeURIComponent(currentTrack.source_url)}`;
-            } else {
-              console.log(`[Player] Local track fallback (Web/Mobile): cachedBlob path`);
-              // Web/Mobile: load blob from IndexedDB/filesystem
-              const cachedBlob = await getCachedTrack(currentTrack.id);
-              if (cachedBlob) {
-                if ((audio as any)._lastTrackId === currentTrack.id && (audio as any)._lastBlobUrl) {
-                  audioSrc = (audio as any)._lastBlobUrl;
-                } else {
-                  if ((audio as any)._lastBlobUrl) URL.revokeObjectURL((audio as any)._lastBlobUrl);
-                  audioSrc = URL.createObjectURL(cachedBlob);
-                  (audio as any)._lastBlobUrl = audioSrc;
-                  (audio as any)._lastTrackId = currentTrack.id;
-                }
-              } else {
-                console.warn(`[Player] Local track not found in storage: ${currentTrack.title}`);
-                // Auto-skip missing local tracks
-                setTimeout(() => playNext(), 500);
-                return;
-              }
-            }
-
-            if (audio.src !== audioSrc) {
-              audio.src = audioSrc;
-              audio.load();
-              (audio as any)._lastSetId = currentTrack.id;
-            }
-            if (isPlaying) {
-              audio.play().catch(() => {});
-            }
-            return;
-          }
-
-          // ========================================
-          // CLOUD / STREAM TRACKS: Full URL resolution
-          // ========================================
-
-          // 0. CHECK FOR INTRO SNIPPET
+          // 0. CHECK FOR INTRO SNIPPET (Phase 2)
+          // If we have snippet_data (Base64) and not cached, use it for instant start
           const initialCachedBlob = await getCachedTrack(currentTrack.id);
           if (!initialCachedBlob && (currentTrack as any).snippet_data) {
             console.log(`[Player] Using 15s INTRO SNIPPET for instant start: ${currentTrack.title}`);
             audioSrc = (currentTrack as any).snippet_data;
             isPlayingSnippet = true;
-
-            if (!streamCacheRef.current.has(currentTrack.id)) {
-              (async () => {
-                try {
-                  const fullRes = await fetch(currentTrack.source_url || '');
-                  if (fullRes.ok) {
-                    const blob = await fullRes.blob();
-                    if (blob.size > 1000) {
-                      const blobUrl = URL.createObjectURL(blob);
-                      streamCacheRef.current.set(currentTrack.id, blobUrl);
-                    }
-                  }
-                } catch (e) {
-                  console.error(`[Player] Pre-fetch failed:`, e);
-                }
-              })();
-            }
           }
+
+          console.log(`[Player] Initial Source:`, audioSrc.substring(0, 50));
 
           // Handle YouTube stream resolution
           const isYouTube = currentTrack.storage_type === 'stream' ||
             (currentTrack.source_url && (currentTrack.source_url.includes('youtube.com') || currentTrack.source_url.includes('youtu.be')));
 
-          let youTubeVideoId = '';
-          if (typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-')) {
-            youTubeVideoId = currentTrack.id.replace('yt-', '');
-          } else if (currentTrack.source_url) {
-            try {
-              const url = new URL(currentTrack.source_url, window.location.href);
-              youTubeVideoId = url.searchParams.get('v') || '';
-            } catch (e) {
-              const match = currentTrack.source_url.match(/[?&]v=([^&]+)/);
-              if (match) youTubeVideoId = match[1];
+          if (isYouTube && !isPlayingSnippet) {
+            let trackId = '';
+            if (typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-')) {
+              trackId = currentTrack.id.replace('yt-', '');
+            } else {
+              try {
+                const url = new URL(currentTrack.source_url, window.location.href);
+                trackId = url.searchParams.get('v') || '';
+              } catch (e) {
+                const match = currentTrack.source_url.match(/[?&]v=([^&]+)/);
+                if (match) trackId = match[1];
+              }
+            }
+
+            if (trackId) {
+              console.log(`[Player] Using server proxy for YouTube: ${currentTrack.title}`);
+              audioSrc = `/api/stream/youtube?v=${trackId}`;
             }
           }
 
-          if (isYouTube && !isPlayingSnippet) {
-            if (youTubeVideoId) {
-              audioSrc = `/api/stream/youtube?v=${youTubeVideoId}`;
+          // Handle Telegram (Cloud) stream resolution
+          if (currentTrack.storage_type === 'cloud' && currentTrack.source_url && currentTrack.source_url.includes('storage/stream')) {
+            // Extract file_id from /api/storage/stream?file_id=...
+            let fileId = '';
+            try {
+              const url = new URL(currentTrack.source_url, window.location.href);
+              fileId = url.searchParams.get('file_id') || '';
+            } catch (e) {
+              const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
+              if (match) fileId = match[1];
             }
+
+            if (fileId) {
+              if (streamCacheRef.current.has(currentTrack.id)) {
+                if (!isPlayingSnippet) {
+                  audioSrc = streamCacheRef.current.get(currentTrack.id)!;
+                  console.log(`[Player] Using cached Telegram URL for: ${currentTrack.title}`);
+                }
+              } else {
+                try {
+                  console.log(`[Player] Resolving Telegram file: ${currentTrack.title}`);
+                  const resolvedUrl = await resolveTelegramLink(fileId);
+                  if (resolvedUrl) {
+                    streamCacheRef.current.set(currentTrack.id, resolvedUrl);
+                    if (!isPlayingSnippet) {
+                      audioSrc = resolvedUrl;
+                      console.log(`[Player] Telegram Resolution SUCCESS`);
+                    } else {
+                      console.log(`[Player] Telegram Resolved but holding for snippet: ${currentTrack.title}`);
+                    }
+                  }
+                } catch (e) {
+                  console.error("Telegram resolution failed", e);
+                }
+              }
+            }
+          }
+
+          // Presence Update
+          if (user && shareListeningActivity) {
+            updatePresence(user.id, currentTrack, isPlaying, shareListeningActivity);
           }
 
           // 1. Check if track is cached
-          const sourcePath = (currentTrack as any).sourcePath || '';
-          const cachedBlob = await loadAudioBlob(currentTrack.id, sourcePath || audioSrc);
+          const cachedBlob = await getCachedTrack(currentTrack.id);
 
           if (cachedBlob) {
             if ((audio as any)._lastTrackId === currentTrack.id && (audio as any)._lastBlobUrl) {
@@ -1105,9 +786,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
               (audio as any)._lastBlobUrl = audioSrc;
               (audio as any)._lastTrackId = currentTrack.id;
             }
-          } else if (!audioSrc || audioSrc === '') {
-            console.warn(`[Player] No audio data for ${currentTrack.title} — skipping`);
-            return;
           } else {
             // If not cached, clear blob cache
             if ((audio as any)._lastBlobUrl) {
@@ -1128,12 +806,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                   console.log(`[Player] Smart Cache starting for: ${currentTrack.title}`);
                   let finalUrl = currentTrack.source_url;
 
-                  // Skip caching for local tracks with no valid source URL
-                  if (currentTrack.storage_type === 'local' && (!finalUrl || finalUrl.startsWith('blob:') || finalUrl.startsWith('idb://'))) {
-                    console.log(`[Player] Local track has no fetchable URL, skipping smart cache: ${currentTrack.title}`);
-                    return;
-                  }
-
                   if (streamCacheRef.current.has(currentTrack.id)) {
                     finalUrl = streamCacheRef.current.get(currentTrack.id)!;
                   } else {
@@ -1143,6 +815,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                         currentTrack.id.replace('yt-', '') : null;
                       if (trackId) {
                         finalUrl = `/api/stream/youtube?v=${trackId}`;
+                      }
+                    } else if (currentTrack.storage_type === 'cloud' && currentTrack.source_url?.includes('storage/stream')) {
+                      const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
+                      if (match) {
+                        const resolved = await resolveTelegramLink(match[1]);
+                        if (resolved) finalUrl = resolved;
                       }
                     }
                   }
@@ -1216,15 +894,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           }
 
           const currentAudioSrc = audio.src;
-          let absoluteSrc = audioSrc;
-          if (!audioSrc.startsWith('blob:')) {
-            try {
-              absoluteSrc = new URL(audioSrc, window.location.href).href;
-            } catch {
-              // Fallback for native local file paths or invalid URL formats
-              absoluteSrc = audioSrc;
-            }
-          }
+          const absoluteSrc = audioSrc.startsWith('blob:') ? audioSrc : new URL(audioSrc, window.location.href).href;
 
           const needsUpdate = (audio as any)._lastSetId !== currentTrack.id ||
             (currentAudioSrc !== absoluteSrc && currentAudioSrc !== audioSrc);
@@ -1256,8 +926,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             audio.addEventListener('timeupdate', handleSnippetTransition);
 
             audio.onerror = (e) => {
-              // Ignore errors if track ended normally or is paused
-              if (audio.ended || audio.paused) return;
               const error = audio.error;
               let message = "Unknown error";
               if (error) {
@@ -1270,40 +938,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
               }
               console.error(`[Player] Playback Error [${currentTrack.title}]: ${message}`, error);
 
-              // Don't fallback to a URL that already failed
-              const lastErrorUrl = (audio as any)._lastErrorUrl;
-              if (lastErrorUrl === audio.src) {
-                console.log(`[Player] Same URL already failed, not retrying`);
-                return;
-              }
-              (audio as any)._lastErrorUrl = audio.src;
-
-              // For YouTube streams, try resolving fresh and playing the CDN URL directly
-              if (isYouTube && youTubeVideoId && !isPlayingSnippet) {
-                console.log(`[Player] Attempting direct CDN resolve for ${currentTrack.title}...`);
-                fetch(`/api/stream/youtube?v=${youTubeVideoId}`)
-                  .then(async (res) => {
-                    if (!res.ok) {
-                      const errData = await res.json().catch(() => ({}));
-                      throw new Error(errData.error || `HTTP ${res.status}`);
-                    }
-                    const blob = await res.blob();
-                    if (blob.size < 1000) throw new Error("Response too small, likely an error");
-                    const blobUrl = URL.createObjectURL(blob);
-                    streamCacheRef.current.set(currentTrack.id, blobUrl);
-                    audio.src = blobUrl;
-                    audio.load();
-                    if (isPlaying) audio.play();
-                  })
-                  .catch((fetchErr) => {
-                    console.error(`[Player] Direct resolve also failed:`, fetchErr);
-                  });
-              }
-
-              // For local tracks with missing files, auto-skip to next
-              if (currentTrack.storage_type === 'local') {
-                console.log(`[Player] Local track failed, skipping: ${currentTrack.title}`);
-                setTimeout(() => playNext(), 500);
+              // Fallback to source_url if resolved URL failed
+              if (audioSrc !== currentTrack.source_url && !isPlayingSnippet) {
+                console.log("[Player] Attempting fallback to original source_url...");
+                audio.src = currentTrack.source_url || '';
+                audio.load();
+                if (isPlaying) audio.play();
               }
             };
 
@@ -1363,47 +1003,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
     syncPlayback();
   }, [currentTrack, isPlaying, currentDevice?.is_active]);
-
-  // Gapless playback: preload next track when current is near end
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !currentTrack) return;
-
-    const handleTimeUpdate = () => {
-      if (!audio.duration || audio.duration < 10) return;
-      const remaining = audio.duration - audio.currentTime;
-      if (remaining < 5 && !(audio as any)._preloaded) {
-        (audio as any)._preloaded = true;
-        const nextIndex = (currentTrackIndex ?? -1) + 1;
-        if (nextIndex < trackQueue.length) {
-          const nextTrack = trackQueue[nextIndex];
-          const preloadAudio = new Audio();
-          if (nextTrack.storage_type === 'local') {
-            const sp = (nextTrack as any).sourcePath || '';
-            if (sp && !sp.startsWith('idb://')) {
-              preloadAudio.src = `local-audio://${encodeURIComponent(sp)}`;
-            }
-          } else if (nextTrack.source_url) {
-            preloadAudio.src = nextTrack.source_url;
-          }
-          preloadAudio.preload = 'auto';
-          preloadAudio.load();
-          console.log(`[Player] Preloading next track: ${nextTrack.title}`);
-        }
-      }
-    };
-
-    const handleEnded = () => {
-      (audio as any)._preloaded = false;
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('ended', handleEnded);
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-    };
-  }, [currentTrack, currentTrackIndex, trackQueue]);
 
   // Listening Stats Tick Logic
   useEffect(() => {
@@ -1482,6 +1081,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             console.error("YouTube prefetch failed", e);
           }
         }
+        // Prefetch Telegram
+        else if (nextTrack.storage_type === 'cloud' && nextTrack.source_url && nextTrack.source_url.includes('storage/stream')) {
+          try {
+            console.log(`[Player] Pre-fetching Telegram for: ${nextTrack.title}`);
+            const url = new URL(nextTrack.source_url, window.location.href);
+            const fileId = url.searchParams.get('file_id');
+            if (fileId) {
+              const resolvedUrl = await resolveTelegramLink(fileId);
+              if (resolvedUrl) {
+                streamCacheRef.current.set(nextTrack.id, resolvedUrl);
+                console.log(`[Player] Pre-fetch SUCCESS (Telegram)`);
+              }
+            }
+          } catch (e) {
+            console.error("Telegram prefetch failed", e);
+          }
+        }
       }
     };
 
@@ -1497,10 +1113,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     return likedTrackIds.has(trackId);
   }, [likedTrackIds]);
 
-  const getPlayCount = useCallback((trackId: string): number => {
-    return playCounts[trackId] || 0;
-  }, [playCounts]);
-
   // Function to toggle like status of a track using localStorage
   const toggleLikeTrack = async (track: Track) => {
     if (!track || !track.id) return;
@@ -1509,6 +1121,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     const isCurrentlyLiked = likedTrackIds.has(trackId);
 
     if (isCurrentlyLiked) {
+      // Remove from liked tracks
       try {
         const likedSongs = JSON.parse(localStorage.getItem('likedSongs') || '[]');
         const updatedLikedSongs = likedSongs.filter((id: string) => id !== trackId);
@@ -1523,6 +1136,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
         console.error('Error removing track from liked songs:', err);
       }
     } else {
+      // Add to liked tracks
       try {
         const likedSongs = JSON.parse(localStorage.getItem('likedSongs') || '[]');
         if (!likedSongs.includes(trackId)) {
@@ -1705,6 +1319,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           audioSrc = `/api/stream/youtube?v=${trackId}`;
         }
       }
+      // Telegram
+      else if (rightTrack.storage_type === 'cloud' && rightTrack.source_url?.includes('storage/stream')) {
+        const match = rightTrack.source_url.match(/[?&]file_id=([^&]+)/);
+        if (match) {
+          try {
+            const resolved = await resolveTelegramLink(match[1]);
+            if (resolved) audioSrc = resolved;
+          } catch (e) { console.error("Right Telegram resolution failed", e); }
+        }
+      }
 
       setRightAudioUrl(audioSrc);
     };
@@ -1727,97 +1351,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       rightAudio.src = "";
     }
   }, [splitAudioEnabled, rightAudioUrl, isRightPlaying]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('spotilark-recently-played');
-    if (saved) {
-      try {
-        setRecentlyPlayed(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('spotilark-play-counts');
-    if (saved) {
-      try {
-        setPlayCounts(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, []);
-
-  useEffect(() => {
-    if (recentlyPlayed.length > 0) {
-      localStorage.setItem('spotilark-recently-played', JSON.stringify(recentlyPlayed));
-    }
-  }, [recentlyPlayed]);
-
-  useEffect(() => {
-    if (Object.keys(playCounts).length > 0) {
-      localStorage.setItem('spotilark-play-counts', JSON.stringify(playCounts));
-    }
-  }, [playCounts]);
-
-  useEffect(() => {
-    if (sleepTimerEnd === null) {
-      setSleepTimerRemaining(null);
-      return;
-    }
-    const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((sleepTimerEnd - Date.now()) / 1000));
-      setSleepTimerRemaining(remaining);
-      if (remaining <= 0) {
-        setSleepTimerEnd(null);
-        setSleepTimerRemaining(null);
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        setIsPlaying(false);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [sleepTimerEnd]);
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    initCapacitorAudio();
-
-    const removePauseListener = onMediaControlPause(() => {
-      setIsPlaying(prev => !prev);
-    });
-    const removeNextListener = onMediaControlNext(() => {
-      playNext();
-    });
-    const removePrevListener = onMediaControlPrev(() => {
-      playPrev();
-    });
-
-    return () => {
-      removePauseListener();
-      removeNextListener();
-      removePrevListener();
-      destroyCapacitorAudio();
-    };
-  }, [playNext, playPrev]);
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    if (currentTrack) {
-      updateMediaNotification({
-        title: currentTrack.title,
-        artist: currentTrack.artist || 'Unknown Artist',
-        artwork: currentTrack.cover || '',
-        duration: currentTrack.duration || 0,
-        isPlaying,
-        currentTime,
-      });
-    }
-  }, [currentTrack?.id, isPlaying, currentTime]);
-
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-    setCapacitorAudioPlaying(isPlaying);
-  }, [isPlaying]);
 
 
   const value = {
@@ -1847,7 +1380,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     likedTrackIds,
     playTrack,
     playTrackFromQueue: play,
-    reorderQueue,
     updateTrackLyrics,
     splitAudioEnabled,
     setSplitAudioEnabled,
@@ -1864,15 +1396,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     toggleLyricsView,
     localLibrary,
     addLocalTracks,
-    removeLocalTracks,
     cloudLibrary,
     unifiedLibrary,
-    sleepTimerEnd,
-    sleepTimerRemaining,
-    setSleepTimer,
-    recentlyPlayed,
-    playCounts,
-    getPlayCount,
   };
 
   // Watchdog: If playing but stuck at 0:00 for too long
@@ -1894,41 +1419,61 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <PlayerAudio
-        audioRef={audioRef}
-        nextAudioRef={nextAudioRef}
-        rightAudioRef={rightAudioRef}
+      {/* 
+        We use React props for event handling to ensure we always have
+        access to the latest state/functions (like playNext) without
+        stale closure issues common with manual addEventListener in useEffect.
+      */}
+      <audio
+        ref={audioRef}
+        id="spotilark-audio"
+        crossOrigin="anonymous"
+        className="hidden"
         onTimeUpdate={(e) => {
           const audio = e.currentTarget;
           setCurrentTime(audio.currentTime);
 
           // Automix / Crossfade Transition Trigger
-          if (isPlaying && (crossfade || crossfade) && duration > 0 && currentTrackIndex !== null) {
+          if (isPlaying && (automix || crossfade) && duration > 0 && currentTrackIndex !== null) {
             const timeLeft = duration - audio.currentTime;
             // Trigger next song when timeLeft matches crossfadeDuration
             if (timeLeft <= crossfadeDuration && timeLeft > 0 && (audio as any)._transitionTriggered !== currentTrackIndex) {
               (audio as any)._transitionTriggered = currentTrackIndex;
-              console.log(`[Player] Triggering ${crossfade ? 'Automix' : 'Crossfade'} transition...`);
+              console.log(`[Player] Triggering ${automix ? 'Automix' : 'Crossfade'} transition...`);
               playNext();
             }
           }
         }}
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onEnded={() => {
+          // Only call playNext if transition wasn't already triggered
           const audio = audioRef.current;
           if (audio && (audio as any)._transitionTriggered !== currentTrackIndex) {
-            if (currentTrack) {
-              setPlayCounts(prev => ({
-                ...prev,
-                [currentTrack.id]: (prev[currentTrack.id] || 0) + 1,
-              }));
-            }
             playNext();
           }
         }}
-        onRightTimeUpdate={(e) => setRightCurrentTime(e.currentTarget.currentTime)}
-        onRightLoadedMetadata={(e) => setRightDuration(e.currentTarget.duration)}
-        onRightEnded={() => setIsRightPlaying(false)}
+      />
+      {/* Hidden audio for gapless pre-buffering */}
+      <audio
+        ref={nextAudioRef}
+        id="spotilark-audio-next"
+        crossOrigin="anonymous"
+        className="hidden"
+      />
+      <audio
+        ref={rightAudioRef}
+        id="spotilark-audio-right"
+        crossOrigin="anonymous"
+        className="hidden"
+      />
+      <audio
+        ref={rightAudioRef}
+        id="spotilark-audio-right"
+        crossOrigin="anonymous"
+        className="hidden"
+        onTimeUpdate={(e) => setRightCurrentTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setRightDuration(e.currentTarget.duration)}
+        onEnded={() => setIsRightPlaying(false)}
       />
     </PlayerContext.Provider>
   );

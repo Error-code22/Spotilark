@@ -2,21 +2,17 @@
 
 import { usePlayer } from "@/context/PlayerContext";
 import { useDevices } from "@/context/DeviceContext";
-import { useTheme } from "@/context/ThemeContext";
-import { useSettings } from "@/context/SettingsContext";
 import { Button } from "../ui/button";
 import { X, ChevronLeft, Play, Pause, SkipBack, SkipForward, ListMusic, MoreVertical, Heart, Shuffle, Repeat, Repeat1, MessageSquareQuote, SlidersHorizontal, Headphones, Music, Laptop2, Search, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { Slider } from "../ui/slider";
-import WaveformProgress from "../WaveformProgress";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { formatTime, cn } from "@/lib/utils";
 import { DialogTitle } from "@/components/ui/dialog";
 import { RedoDotIcon } from './RedoDotIcon';
 import { UndoDotIcon } from './UndoDotIcon';
 import Equalizer from "../Equalizer";
-import { FloatingVideoPlayer } from '@/components/FloatingVideoPlayer';
 
 export const NowPlaying = () => {
   const {
@@ -30,7 +26,6 @@ export const NowPlaying = () => {
     togglePlayPause,
     playNext,
     playPrev,
-    reorderQueue,
     isShuffled,
     toggleShuffle,
     repeatMode,
@@ -57,32 +52,7 @@ export const NowPlaying = () => {
     handleVolumeChange,
     unifiedLibrary,
   } = usePlayer();
-
-  const videoSrc = useMemo(() => {
-    if (!currentTrack) return null;
-    const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
-    let src = null;
-    if (currentTrack.hasVideo && currentTrack.videoUrl) src = currentTrack.videoUrl;
-    if (!src) {
-      const base = currentTrack.title?.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!base) return null;
-      const match = unifiedLibrary.find(t => 
-        t.hasVideo && t.videoUrl && 
-        t.title?.toLowerCase().replace(/[^a-z0-9]/g, '') === base
-      );
-      src = match?.videoUrl || null;
-    }
-    if (!src) return null;
-    // On Electron, convert file paths to local-audio:// protocol
-    if (isElectron && !src.startsWith('http') && !src.startsWith('blob:') && !src.startsWith('data:') && !src.startsWith('local-audio://')) {
-      return `local-audio://${encodeURIComponent(src)}`;
-    }
-    return src;
-  }, [currentTrack, unifiedLibrary]);
-
   const { devices, currentDevice, activePlayerDevice, transferPlayback, sendCommand, setIsDevicesMenuOpen } = useDevices();
-  const { wallpaper } = useTheme();
-  const { playVideoAsAudio } = useSettings();
 
   // Remote Control Logic
   const isRemoteMode = activePlayerDevice && activePlayerDevice.id !== currentDevice?.id;
@@ -128,36 +98,6 @@ export const NowPlaying = () => {
   const [isSelectingLeftTrack, setIsSelectingLeftTrack] = useState(false);
   const [isDevicesOpen, setIsDevicesOpen] = useState(false);
   const playerRef = useRef<HTMLDivElement>(null);
-  const [videoMode, setVideoMode] = useState(false);
-  const [showFloatingPlayer, setShowFloatingPlayer] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Reset floating player when track changes, or show video player for video tracks
-  useEffect(() => {
-    if (currentTrack?.hasVideo && currentTrack?.videoUrl && !playVideoAsAudio) {
-      setVideoMode(true);
-      setShowFloatingPlayer(true);
-    } else {
-      setShowFloatingPlayer(false);
-      setVideoMode(false);
-    }
-  }, [currentTrack?.id, currentTrack?.hasVideo, currentTrack?.videoUrl, playVideoAsAudio]);
-
-  // Note: When videoMode is on, both video and audio play. User should mute main audio via volume control.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !videoMode || !videoSrc) return;
-    if (isPlaying) v.play().catch(() => {});
-    else v.pause();
-  }, [isPlaying, videoMode, videoSrc]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !videoMode || !videoSrc) return;
-    if (v.readyState >= 2 && Math.abs(v.currentTime - currentTime) > 0.75) {
-      v.currentTime = currentTime;
-    }
-  }, [currentTime, videoMode, videoSrc]);
 
   const toggleQueue = () => {
     setIsQueueOpen(!isQueueOpen);
@@ -246,21 +186,6 @@ export const NowPlaying = () => {
 
   const toggleSecondaryMenu = () => setIsSecondaryMenuOpen(!isSecondaryMenuOpen);
 
-  useEffect(() => {
-    if (displayTrack?.lyrics && displayTrack.lyrics.length > 0) {
-      const activeIdx = displayTrack.lyrics.findIndex((line, idx) => {
-        const nextTime = displayTrack.lyrics![idx + 1]?.time ?? Infinity;
-        return displayCurrentTime >= line.time && displayCurrentTime < nextTime;
-      });
-      if (activeIdx >= 0) {
-        const el = document.getElementById(`lyric-line-${activeIdx}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }
-    }
-  }, [displayCurrentTime, displayTrack?.lyrics]);
-
   return (
     <AnimatePresence>
       {isNowPlayingOpen && (
@@ -290,20 +215,13 @@ export const NowPlaying = () => {
         >
           {/* Blurred Background Decoration */}
           <div className="absolute inset-0 z-0">
-            {wallpaper ? (
-              <div
-                className="wallpaper-bg"
-                style={{ backgroundImage: `url(${wallpaper})` }}
-              />
-            ) : (
-              <Image
-                src={displayTrack?.cover || '/spotilark-without-text-white.png'}
-                alt="Background Blur"
-                fill
-                className="object-cover opacity-20 blur-[100px] scale-150"
-                unoptimized
-              />
-            )}
+            <Image
+              src={displayTrack?.cover || '/SL.png'}
+              alt="Background Blur"
+              fill
+              className="object-cover opacity-20 blur-[100px] scale-150"
+              unoptimized
+            />
             <div className="absolute inset-0 bg-background/40 backdrop-blur-[40px]" />
           </div>
 
@@ -337,265 +255,160 @@ export const NowPlaying = () => {
               </motion.div>
             )}
           </div>
-          <div className="flex w-full h-full min-h-0">
-            <div className="hidden md:flex w-1/2 flex-col overflow-hidden relative">
-              <div className="absolute inset-0 z-0">
-                <Image
-                  src={displayTrack?.cover || '/spotilark-without-text-white.png'}
-                  alt="Background"
-                  fill
-                  className="object-cover blur-[80px] scale-150 opacity-20"
-                  unoptimized
-                />
-                <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" />
-              </div>
-              <div className="relative z-10 flex-1 overflow-hidden px-6">
-                <div className="h-full overflow-y-auto scrollbar-hide py-[35vh]">
-                  <div className="space-y-4">
-                    {displayTrack?.lyrics && displayTrack.lyrics.length > 0 ? (
-                      displayTrack.lyrics.map((line, idx) => {
-                        const nextTime = displayTrack.lyrics![idx + 1]?.time ?? Infinity;
-                        const isActive = currentTime >= line.time && currentTime < nextTime;
-                        return (
-                          <p
-                            key={idx}
-                            id={`lyric-line-${idx}`}
-                            className={cn(
-                              "text-3xl font-bold transition-all duration-500 text-center",
-                              isActive
-                                ? "text-white scale-105"
-                                : "text-white/30"
-                            )}
-                          >
-                            {line.text}
-                          </p>
-                        );
-                      })
-                    ) : (
-                      <div className="flex flex-col items-center justify-center opacity-60">
-                        <MessageSquareQuote className="h-16 w-16 mb-4 text-white/30" />
-                        <p className="text-xl font-medium text-white/40">No lyrics available</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+          <div className="flex flex-col items-center z-10 w-full max-w-lg mt-2">
+            {/* Curved Thumbnail */}
+            <div className="relative w-56 h-56 rounded-3xl overflow-hidden shadow-2xl border-2 border-white/5 bg-card/40">
+              <Image
+                src={displayTrack?.cover || '/SL.png'}
+                alt={displayTrack?.album || 'Album Cover'}
+                fill
+                className="object-cover"
+                unoptimized
+              />
             </div>
-            <div className="w-full md:w-1/2 flex flex-col items-center justify-start pt-8 sm:pt-12 pb-4 px-4 overflow-y-auto">
-              <div className="flex flex-col items-center z-10 w-full max-w-lg mt-2">
-                {videoSrc && (
-                  <div className="flex gap-1 mb-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setVideoMode(!videoMode)}
-                      className={`rounded-full text-xs ${videoMode ? 'bg-primary/20 text-primary' : 'text-muted-foreground'}`}
+
+            {/* Typography Refinement */}
+            <div className="text-center space-y-1 w-full px-4 mt-4">
+              <h2 className="text-2xl font-black line-clamp-2 tracking-tighter text-foreground/95 drop-shadow-sm uppercase italic leading-tight">
+                {displayTrack?.title || 'No track playing'}
+              </h2>
+              <p className="text-primary italic font-semibold tracking-[0.2em] text-xs opacity-80">
+                {displayTrack?.artist || 'N/A'}
+              </p>
+            </div>
+
+            {/* Secondary Controls Horizontal bar with Menu toggle - Above Slider */}
+            <div className="flex items-center justify-between w-full px-4 mt-6 relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => displayTrack && toggleLikeTrack(displayTrack)}
+                className="h-10 w-10 rounded-full hover:bg-white/10 transition-colors"
+              >
+                <Heart
+                  className={cn(
+                    "h-6 w-6 transition-all duration-300",
+                    displayTrack && isTrackLiked(displayTrack.id) ? 'fill-red-500 text-red-500 scale-110' : 'text-muted-foreground/60'
+                  )}
+                />
+              </Button>
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleSecondaryMenu}
+                  className={cn("h-10 w-10 rounded-full hover:bg-white/10 transition-colors", isSecondaryMenuOpen ? 'bg-white/10 text-primary' : 'text-muted-foreground/60')}
+                >
+                  <MoreVertical className="h-6 w-6" />
+                </Button>
+                <AnimatePresence>
+                  {isSecondaryMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                      className="absolute bottom-12 right-0 flex flex-row gap-2.5 p-2 rounded-2xl bg-card/80 backdrop-blur-2xl border border-white/10 shadow-2xl z-20 overflow-hidden"
                     >
-                      {videoMode ? '🎵 Audio' : '🎬 Video'}
-                    </Button>
-                    {videoMode && (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowFloatingPlayer(true);
-                          setVideoMode(false);
-                        }}
-                        className="rounded-full text-xs text-muted-foreground"
-                        title="Pop out video"
+                        size="icon"
+                        onClick={() => { toggleShuffle(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isShuffled ? 'text-primary' : 'text-muted-foreground/60')}
                       >
-                        Pop-out
+                        <Shuffle className={cn("h-5 w-5", isShuffled ? 'fill-current' : '')} />
                       </Button>
-                    )}
-                  </div>
-                )}
-                {videoMode && videoSrc ? (
-                  <div className="relative w-full max-w-sm aspect-video rounded-3xl overflow-hidden shadow-2xl border-2 border-white/5 bg-black">
-                    <video
-                      ref={videoRef}
-                      src={videoSrc}
-                      playsInline
-                      preload="auto"
-                      className="w-full h-full object-contain bg-black"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative w-36 h-36 sm:w-48 sm:h-48 rounded-3xl overflow-hidden shadow-2xl border-2 border-white/5 bg-card/40">
-                    <Image
-                      src={displayTrack?.cover || '/spotilark-without-text-white.png'}
-                      alt={displayTrack?.album || 'Album Cover'}
-                      fill
-                      className="object-cover"
-                      unoptimized
-                    />
-                  </div>
-                )}
-
-                <div className="text-center space-y-1 w-full px-4 mt-3 sm:mt-4">
-                  <h2 className="text-lg sm:text-2xl font-black line-clamp-2 tracking-tighter text-foreground/95 drop-shadow-sm uppercase italic leading-tight">
-                    {displayTrack?.title || 'No track playing'}
-                  </h2>
-                  <p className="text-primary italic font-semibold tracking-[0.2em] text-[10px] sm:text-xs opacity-80">
-                    {displayTrack?.artist || 'N/A'}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between w-full px-4 mt-3 sm:mt-6 relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => displayTrack && toggleLikeTrack(displayTrack)}
-                    className="h-10 w-10 rounded-full hover:bg-white/10 transition-colors"
-                  >
-                    <Heart
-                      className={cn(
-                        "h-6 w-6 transition-all duration-300",
-                        displayTrack && isTrackLiked(displayTrack.id) ? 'fill-red-500 text-red-500 scale-110' : 'text-muted-foreground/60'
-                      )}
-                    />
-                  </Button>
-                  <div className="relative md:hidden">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleSecondaryMenu}
-                      className={cn("h-10 w-10 rounded-full hover:bg-white/10 transition-colors", isSecondaryMenuOpen ? 'bg-white/10 text-primary' : 'text-muted-foreground/60')}
-                    >
-                      <MoreVertical className="h-6 w-6" />
-                    </Button>
-                    <AnimatePresence>
-                      {isSecondaryMenuOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                          className="absolute bottom-12 right-0 flex flex-row gap-2.5 p-2 rounded-2xl bg-card/80 backdrop-blur-2xl border border-white/10 shadow-2xl z-20 overflow-hidden"
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleShuffle(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isShuffled ? 'text-primary' : 'text-muted-foreground/60')}
-                          >
-                            <Shuffle className={cn("h-5 w-5", isShuffled ? 'fill-current' : '')} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleRepeat(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", repeatMode !== 'off' ? 'text-primary' : 'text-muted-foreground/60')}
-                          >
-                            {repeatMode === 'one' ? (
-                              <Repeat1 className="h-5 w-5 fill-current" />
-                            ) : (
-                              <Repeat className={cn("h-5 w-5", repeatMode !== 'off' ? 'fill-current' : '')} />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleLyrics(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isLyricsOpen ? 'text-primary' : 'text-muted-foreground/60')}
-                          >
-                            <MessageSquareQuote className="h-5 w-5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleEqualizer(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isEqualizerOpen ? 'text-primary' : 'text-muted-foreground/60')}
-                          >
-                            <SlidersHorizontal className="h-5 w-5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleSplitAudioMenu(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isSplitAudioOpen || splitAudioEnabled ? 'text-primary' : 'text-muted-foreground/60')}
-                            title="Split Audio"
-                          >
-                            <Headphones className="h-5 w-5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleDevices(); toggleSecondaryMenu(); }}
-                            className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isDevicesOpen ? 'text-primary' : 'text-muted-foreground/60')}
-                            title="Devices"
-                          >
-                            <Laptop2 className="h-5 w-5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { toggleQueue(); toggleSecondaryMenu(); }}
-                            className="h-10 w-10 rounded-xl hover:bg-white/10 text-muted-foreground/60 transition-colors"
-                          >
-                            <ListMusic className="h-5 w-5" />
-                          </Button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-
-                <div className="w-full max-w-xs mx-auto px-4 mt-2 sm:mt-4">
-                  <WaveformProgress
-                    currentTime={displayCurrentTime}
-                    duration={duration}
-                    onSeek={handleSeekRemote}
-                    trackUrl={displayTrack?.source_url}
-                    trackId={displayTrack?.id}
-                    isLocal={displayTrack?.storage_type === 'local'}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between w-full px-2 sm:px-4 mb-2">
-                  <Button variant="ghost" size="icon" onClick={() => isRemoteMode ? sendCommand(activePlayerDevice.id, { type: 'SEEK', value: (displayCurrentTime - 10) * 1000 }) : seekBy(-10)} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
-                    <UndoDotIcon className="h-5 w-5 sm:h-7 sm:w-7" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleSkipRemote('prev')} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
-                    <SkipBack className="h-6 w-6 sm:h-8 sm:w-8 fill-current text-foreground/90" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={handlePlayPause} className="h-16 w-16 sm:h-20 sm:w-20 rounded-full hover:bg-white/5 active:scale-90 transition-transform flex items-center justify-center">
-                    {displayIsPlaying ? <Pause className="h-8 w-8 sm:h-10 sm:w-10 fill-current text-foreground" /> : <Play className="h-8 w-8 sm:h-10 sm:w-10 fill-current ml-1 text-foreground" />}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleSkipRemote('next')} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
-                    <SkipForward className="h-6 w-6 sm:h-8 sm:w-8 fill-current text-foreground/90" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => isRemoteMode ? sendCommand(activePlayerDevice.id, { type: 'SEEK', value: (displayCurrentTime + 10) * 1000 }) : seekBy(10)} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
-                    <RedoDotIcon className="h-5 w-5 sm:h-7 sm:w-7" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center justify-center gap-2 sm:gap-3 px-4 mt-2 flex-wrap">
-                  <Button variant="ghost" size="icon" onClick={toggleShuffle} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", isShuffled ? 'text-primary' : 'text-muted-foreground/60')}>
-                    <Shuffle className={cn("h-4 w-4", isShuffled ? 'fill-current' : '')} />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleRepeat} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", repeatMode !== 'off' ? 'text-primary' : 'text-muted-foreground/60')}>
-                    {repeatMode === 'one' ? (
-                      <Repeat1 className="h-4 w-4 fill-current" />
-                    ) : (
-                      <Repeat className={cn("h-4 w-4", repeatMode !== 'off' ? 'fill-current' : '')} />
-                    )}
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleLyrics} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", isLyricsOpen ? 'text-primary' : 'text-muted-foreground/60')}>
-                    <MessageSquareQuote className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleEqualizer} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", isEqualizerOpen ? 'text-primary' : 'text-muted-foreground/60')}>
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleSplitAudioMenu} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", isSplitAudioOpen || splitAudioEnabled ? 'text-primary' : 'text-muted-foreground/60')} title="Split Audio">
-                    <Headphones className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleDevices} className={cn("h-9 w-9 rounded-full hover:bg-white/10 transition-colors", isDevicesOpen ? 'text-primary' : 'text-muted-foreground/60')} title="Devices">
-                    <Laptop2 className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={toggleQueue} className="h-9 w-9 rounded-full hover:bg-white/10 text-muted-foreground/60 transition-colors">
-                    <ListMusic className="h-4 w-4" />
-                  </Button>
-                </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleRepeat(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", repeatMode !== 'off' ? 'text-primary' : 'text-muted-foreground/60')}
+                      >
+                        {repeatMode === 'one' ? (
+                          <Repeat1 className="h-5 w-5 fill-current" />
+                        ) : (
+                          <Repeat className={cn("h-5 w-5", repeatMode !== 'off' ? 'fill-current' : '')} />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleLyrics(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isLyricsOpen ? 'text-primary' : 'text-muted-foreground/60')}
+                      >
+                        <MessageSquareQuote className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleEqualizer(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isEqualizerOpen ? 'text-primary' : 'text-muted-foreground/60')}
+                      >
+                        <SlidersHorizontal className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleSplitAudioMenu(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isSplitAudioOpen || splitAudioEnabled ? 'text-primary' : 'text-muted-foreground/60')}
+                        title="Split Audio"
+                      >
+                        <Headphones className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleDevices(); toggleSecondaryMenu(); }}
+                        className={cn("h-10 w-10 rounded-xl hover:bg-white/10 transition-colors", isDevicesOpen ? 'text-primary' : 'text-muted-foreground/60')}
+                        title="Devices"
+                      >
+                        <Laptop2 className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { toggleQueue(); toggleSecondaryMenu(); }}
+                        className="h-10 w-10 rounded-xl hover:bg-white/10 text-muted-foreground/60 transition-colors"
+                      >
+                        <ListMusic className="h-5 w-5" />
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
+            </div>
+
+            {/* Slider/Time */}
+            <div className="w-full max-w-xs mx-auto px-4 space-y-2 mt-4">
+              <Slider
+                value={[displayCurrentTime]}
+                max={duration}
+                onValueChange={(value) => handleSeekRemote(value[0])}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[11px] font-black tracking-widest text-muted-foreground/50 uppercase">
+                <span>{formatTime(displayCurrentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+
+
+            {/* Lark-Style Control Grouping (shifted up) */}
+            <div className="flex items-center justify-between w-full px-4 mb-2">
+              <Button variant="ghost" size="icon" onClick={() => isRemoteMode ? sendCommand(activePlayerDevice.id, { type: 'SEEK', value: (displayCurrentTime - 10) * 1000 }) : seekBy(-10)} className="h-12 w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
+                <UndoDotIcon className="h-7 w-7" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => handleSkipRemote('prev')} className="h-12 w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
+                <SkipBack className="h-8 w-8 fill-current text-foreground/90" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handlePlayPause} className="h-20 w-20 rounded-full hover:bg-white/5 active:scale-90 transition-transform flex items-center justify-center">
+                {displayIsPlaying ? <Pause className="h-10 w-10 fill-current text-foreground" /> : <Play className="h-10 w-10 fill-current ml-1 text-foreground" />}
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => handleSkipRemote('next')} className="h-12 w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
+                <SkipForward className="h-8 w-8 fill-current text-foreground/90" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => isRemoteMode ? sendCommand(activePlayerDevice.id, { type: 'SEEK', value: (displayCurrentTime + 10) * 1000 }) : seekBy(10)} className="h-12 w-12 rounded-full hover:bg-white/5 active:scale-95 transition-transform">
+                <RedoDotIcon className="h-7 w-7" />
+              </Button>
             </div>
           </div>
         </motion.div>
@@ -608,7 +421,7 @@ export const NowPlaying = () => {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed inset-y-0 right-0 w-full sm:w-80 bg-background z-50 shadow-lg flex flex-col"
+          className="fixed inset-y-0 right-0 w-80 bg-background z-50 shadow-lg flex flex-col"
         >
           <div className="flex justify-between items-center p-4 border-b">
             <h3 className="text-lg font-black italic uppercase tracking-tighter">Queue</h3>
@@ -623,7 +436,7 @@ export const NowPlaying = () => {
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Now Playing</span>
                 <div className="flex items-center gap-4 p-3 rounded-2xl bg-primary/10 border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
                   <div className="relative w-12 h-12 rounded-xl overflow-hidden shadow-lg border border-white/10 shrink-0">
-                    <Image src={currentTrack.cover || '/spotilark-without-text-white.png'} alt={currentTrack.title} fill className="object-cover" unoptimized />
+                    <Image src={currentTrack.cover || '/SL.png'} alt={currentTrack.title} fill className="object-cover" unoptimized />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold truncate text-sm">{currentTrack.title}</p>
@@ -641,40 +454,21 @@ export const NowPlaying = () => {
               <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Up Next</span>
               <div className="space-y-1">
                 {trackQueue.length > 0 && currentTrackIndex !== null && trackQueue.length > currentTrackIndex + 1 ? (
-                  trackQueue.slice(currentTrackIndex + 1).map((track, idx) => {
-                    const realIndex = currentTrackIndex + 1 + idx;
-                    return (
+                  trackQueue.slice(currentTrackIndex + 1).map((track, idx) => (
                     <div
                       key={`${track.id}-${idx}`}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', String(realIndex));
-                        e.dataTransfer.effectAllowed = 'move';
-                      }}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = 'move';
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                        if (!isNaN(fromIndex) && fromIndex !== realIndex) {
-                          reorderQueue(fromIndex, realIndex);
-                        }
-                      }}
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
-                      onClick={() => play(realIndex)}
+                      onClick={() => play(currentTrackIndex + 1 + idx)}
                     >
                       <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/5 shrink-0">
-                        <Image src={track.cover || '/spotilark-without-text-white.png'} alt={track.title} fill className="object-cover" unoptimized />
+                        <Image src={track.cover || '/SL.png'} alt={track.title} fill className="object-cover" unoptimized />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold truncate text-[13px] group-hover:text-primary transition-colors">{track.title}</p>
                         <p className="text-[11px] text-muted-foreground truncate font-medium">{track.artist}</p>
                       </div>
                     </div>
-                    );
-                  })
+                  ))
                 ) : currentTrackIndex === null && trackQueue.length > 0 ? (
                   // If no track is playing but queue exists, show first track as "Ready to Play"
                   <div
@@ -682,7 +476,7 @@ export const NowPlaying = () => {
                     onClick={() => play(0)}
                   >
                     <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-white/5 shrink-0">
-                      <Image src={trackQueue[0].cover || '/spotilark-without-text-white.png'} alt={trackQueue[0].title} fill className="object-cover" unoptimized />
+                      <Image src={trackQueue[0].cover || '/SL.png'} alt={trackQueue[0].title} fill className="object-cover" unoptimized />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold truncate text-[13px] group-hover:text-primary transition-colors">{trackQueue[0].title}</p>
@@ -705,7 +499,7 @@ export const NowPlaying = () => {
           animate={{ x: 0 }}
           exit={{ x: "100%" }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          className="fixed inset-y-0 right-0 w-full sm:w-80 bg-background z-50 shadow-lg flex flex-col"
+          className="fixed inset-y-0 right-0 w-80 bg-background z-50 shadow-lg flex flex-col"
         >
           <div className="flex justify-between items-center p-4 border-b">
             <h3 className="text-lg font-bold">Lyrics</h3>
@@ -713,28 +507,9 @@ export const NowPlaying = () => {
               <X />
             </Button>
           </div>
-          <div className="p-4 overflow-y-auto flex-1">
-            {displayTrack?.lyrics && displayTrack.lyrics.length > 0 ? (
-              <div className="space-y-3">
-                {displayTrack.lyrics.map((line, idx) => {
-                  const nextTime = displayTrack.lyrics![idx + 1]?.time ?? Infinity;
-                  const isActive = currentTime >= line.time && currentTime < nextTime;
-                  return (
-                    <p
-                      key={idx}
-                      className={cn(
-                        "text-sm font-semibold transition-all duration-300",
-                        isActive ? "text-primary scale-105" : "text-muted-foreground"
-                      )}
-                    >
-                      {line.text}
-                    </p>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No lyrics available for this track.</p>
-            )}
+          <div className="p-4 overflow-y-auto">
+            {/* Placeholder for lyrics content */}
+            <p className="text-muted-foreground">Lyrics will appear here.</p>
           </div>
         </motion.div>
       )}
@@ -1121,12 +896,6 @@ export const NowPlaying = () => {
             if (isSplitAudioOpen) toggleSplitAudioMenu();
             if (isDevicesOpen) toggleDevices();
           }}
-        />
-      )}
-      {showFloatingPlayer && videoSrc && isNowPlayingOpen && (
-        <FloatingVideoPlayer
-          videoSrc={videoSrc}
-          onClose={() => setShowFloatingPlayer(false)}
         />
       )}
     </AnimatePresence>

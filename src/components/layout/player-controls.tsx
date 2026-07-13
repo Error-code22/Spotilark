@@ -5,8 +5,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { useDevices } from "@/context/DeviceContext";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
-import WaveformProgress from "@/components/WaveformProgress";
+import { formatTime, cn } from "@/lib/utils";
 import {
   Pause,
   Play,
@@ -22,8 +21,7 @@ import {
   Heart,
   Shuffle,
   Repeat,
-  Repeat1,
-  SlidersHorizontal
+  Repeat1
 } from "lucide-react";
 import { MarqueeText } from "@/components/ui/marquee-text";
 import {
@@ -32,10 +30,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { UndoDotIcon } from "./UndoDotIcon";
 import { RedoDotIcon } from "./RedoDotIcon";
-import Equalizer from "@/components/Equalizer";
 
 
 export const PlayerControls = () => {
@@ -167,7 +164,7 @@ const MobilePlayer = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-[72px] bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1.5 group select-none">
+    <div className="fixed bottom-0 left-0 right-0 h-[72px] bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1.5 group select-none overflow-hidden">
       {/* TOP ROW: Info + Buttons */}
       <div className="flex items-center justify-between w-full h-16">
         {/* LEFT: Track Info Area (Draggable & Clickable) */}
@@ -198,7 +195,7 @@ const MobilePlayer = ({
                 <>
                   <div className="relative h-11 w-11 rounded-xl overflow-hidden flex-shrink-0 shadow-2xl pointer-events-none">
                     <Image
-                      src={currentTrack.cover || '/spotilark-without-text-white.png'}
+                      src={currentTrack.cover || '/SL.png'}
                       alt={currentTrack.album || 'Album Cover'}
                       fill
                       className="object-cover"
@@ -263,22 +260,7 @@ const DesktopPlayer = ({
   playNext, playPrev, currentTime, duration, handleSeek, seekBy,
   VolumeIcon, volume, handleVolumeChange, isLyricsViewOpen, toggleLyricsView, setIsVolumeHovered,
   isShuffled, toggleShuffle, repeatMode, toggleRepeat, isTrackLiked, toggleLikeTrack
-}: any) => {
-  const [isEqOpen, setIsEqOpen] = useState(false);
-  const eqRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isEqOpen) return;
-    const handleClick = (e: MouseEvent) => {
-      if (eqRef.current && !eqRef.current.contains(e.target as Node)) {
-        setIsEqOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isEqOpen]);
-
-  return (
+}: any) => (
   <div className="fixed bottom-0 left-0 right-0 h-[88px] bg-background/90 backdrop-blur-xl border-t border-border z-40 px-4 flex items-center justify-between group select-none">
     {/* LEFT: Track Info (Clickable) */}
     <div className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer" onClick={currentTrack ? toggleNowPlaying : undefined}>
@@ -286,7 +268,7 @@ const DesktopPlayer = ({
         <>
           <div className="relative h-14 w-14 rounded-md overflow-hidden flex-shrink-0 group/cover shadow-lg">
             <Image
-              src={currentTrack.cover || '/spotilark-without-text-white.png'}
+              src={currentTrack.cover || '/SL.png'}
               alt={currentTrack.album || 'Album Cover'}
               fill
               className="object-cover transition-transform duration-500 group-hover/cover:scale-110"
@@ -370,15 +352,17 @@ const DesktopPlayer = ({
         </Button>
       </div>
 
-      <WaveformProgress
-        currentTime={currentTime}
-        duration={duration}
-        onSeek={handleSeek}
-        className="w-full"
-        trackUrl={currentTrack?.source_url}
-        trackId={currentTrack?.id}
-        isLocal={currentTrack?.storage_type === 'local'}
-      />
+      <div className="flex items-center gap-2 w-full group/seek">
+        <span className="text-[10px] text-muted-foreground font-mono tabular-nums w-8 text-right underline decoration-foreground/0 group-hover/seek:decoration-foreground/20 transition-all">
+          {formatTime(currentTime)}
+        </span>
+        <div className="relative flex-1 h-3 flex items-center">
+          <Slider value={[currentTime]} max={duration || 100} onValueChange={(val) => handleSeek(val[0])} className="w-full cursor-pointer" />
+        </div>
+        <span className="text-[10px] text-muted-foreground font-mono tabular-nums w-8 text-left underline decoration-foreground/0 group-hover/seek:decoration-foreground/20 transition-all">
+          {formatTime(duration)}
+        </span>
+      </div>
     </div>
 
     {/* RIGHT: Tools & Volume */}
@@ -386,14 +370,6 @@ const DesktopPlayer = ({
       <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors h-8 w-8" title="Now Playing" onClick={(e) => { e.stopPropagation(); toggleNowPlaying(); }}>
         <BarChart2 className="h-4 w-4" />
       </Button>
-      <div className="relative" ref={eqRef}>
-        <Button variant="ghost" size="icon" className={cn("text-muted-foreground hover:text-foreground transition-colors h-8 w-8", isEqOpen && "text-primary")} title="Equalizer" onClick={(e) => { e.stopPropagation(); setIsEqOpen(!isEqOpen); }}>
-          <SlidersHorizontal className="h-4 w-4" />
-        </Button>
-        <div className={cn("absolute bottom-full right-0 mb-2 z-[70] transition-opacity", isEqOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")} onClick={(e) => e.stopPropagation()}>
-          <Equalizer />
-        </div>
-      </div>
       <Button variant="ghost" size="icon" className={cn("text-muted-foreground hover:text-foreground transition-colors h-8 w-8", isLyricsViewOpen && "text-primary")} onClick={(e) => { e.stopPropagation(); toggleLyricsView(); }} title="Lyrics">
         <Mic2 className="h-4 w-4" />
       </Button>
@@ -417,8 +393,7 @@ const DesktopPlayer = ({
       </Popover>
     </div>
   </div >
-  );
-};
+);
 
 const DevicesPopover = ({ children }: { children: React.ReactNode }) => {
   const { devices, currentDevice, activePlayerDevice, transferPlayback, setIsDevicesMenuOpen } = useDevices();

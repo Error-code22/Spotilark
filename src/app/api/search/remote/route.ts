@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PIPED_INSTANCES, INVIDIOUS_INSTANCES, shuffle, getStealthHeaders } from "@/lib/network-instances";
 import yts from 'yt-search';
-import youtubedl from 'youtube-dl-exec';
-import { getYtDlpCookieArgs } from "@/lib/youtube-cookies";
-import { YTDLP_PATH } from "@/lib/binary-paths";
 
 // Helper for robust Video ID extraction
 function extractVideoId(url: string): string | null {
@@ -69,49 +66,7 @@ export async function GET(req: NextRequest) {
     console.log(`[SearchRemote] DEEP SEARCH for: ${query}`);
 
     try {
-        // --- 0. PRIMARY: Local yt-dlp (Unlimited, no API quota) ---
-        if (typeof window === 'undefined') {
-            try {
-                console.log(`[SearchRemote] Attempting local yt-dlp search...`);
-                const cookieArgs = await getYtDlpCookieArgs();
-                const result = await youtubedl(`ytsearch20:${query}`, {
-                    dumpSingleJson: true,
-                    noCheckCertificates: true,
-                    noWarnings: true,
-                    flatPlaylist: true,
-                    skipDownload: true,
-                    addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-                    socketTimeout: 15,
-                    binaryPath: YTDLP_PATH,
-                    extractorArgs: "youtube:player_client=web",
-                    ...cookieArgs,
-                } as any) as any;
-
-                const entries = result.entries || (result as any)._type === 'playlist' ? result.entries : [result];
-                if (entries && entries.length > 0) {
-                    console.log(`[SearchRemote] yt-dlp SUCCESS: found ${entries.length} results`);
-                    const tracks = entries
-                        .filter((e: any) => e.id && e.title)
-                        .map((entry: any) => ({
-                            id: `yt-${entry.id}`,
-                            remoteId: entry.id,
-                            title: entry.title || 'Untitled',
-                            artist: entry.channel || entry.uploader || entry.creator || 'Unknown Artist',
-                            album: "YouTube",
-                            cover: entry.thumbnail || entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`,
-                            duration: entry.duration || entry.duration_secs || 0,
-                            source: 'youtube',
-                            storage_type: 'stream',
-                            source_url: `/api/stream/youtube?v=${entry.id}`
-                        }));
-                    return NextResponse.json(tracks);
-                }
-            } catch (ytdlpError: any) {
-                console.error(`[SearchRemote] yt-dlp FAILED: ${ytdlpError.message}`);
-            }
-        }
-
-        // --- 1. YouTube Data API v3 (Official) ---
+        // --- 1. PRIMARY: YouTube Data API v3 (Official) ---
         const youtubeApiKey = process.env.YOUTUBE_API_KEY;
         if (youtubeApiKey) {
             try {

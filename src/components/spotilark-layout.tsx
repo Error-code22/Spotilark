@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { useTheme } from "@/context/ThemeContext";
-import { Menu, MoreVertical, User, Settings, LogOut, LogIn, Sun, Moon, Search, Folder, Home, ListMusic, Music, Music2, UserRound, X, RotateCw, ChevronLeft, Download, CloudUpload } from "lucide-react";
+import { Menu, MoreVertical, User, Settings, LogOut, LogIn, Sun, Moon, Search, Folder, Home, ListMusic, Mails, Music, Music2, Radio, ChartBarIncreasing, UserRound, X, RotateCw, ChevronLeft } from "lucide-react";
 
 import { LeftSidebar } from "./layout/left-sidebar";
 import { MainContent } from "./layout/main-content";
@@ -25,9 +25,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import { usePlayer } from "@/context/PlayerContext";
-import { initCapacitor } from "@/lib/capacitor-init";
-import { DownloadManager } from "@/components/DownloadManager";
 
 const menuItems = [
   { icon: Home, label: "Home", href: "/" },
@@ -35,7 +32,11 @@ const menuItems = [
   { icon: Folder, label: "Folders", href: "/folders" },
   { icon: User, label: "Artists", href: "/artist" },
   { icon: Music, label: "Albums", href: "/albums" },
-  { icon: Music, label: "Video", href: "/video" },
+  { icon: ChartBarIncreasing, label: "Lyrics", href: "/lyrics" },
+  { icon: Search, label: "Search", href: "/search" },
+  { icon: Mails, label: "Messages", href: "/messages" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: UserRound, label: "Profile", href: "/profile" },
 ];
 
 export const SpotilarkLayout = ({
@@ -44,14 +45,7 @@ export const SpotilarkLayout = ({
   children: React.ReactNode;
 }) => {
   const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 1024;
-    }
-    return true;
-  });
-  const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const isResizingRef = useRef(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -60,7 +54,6 @@ export const SpotilarkLayout = ({
   const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
-  const { playTrack, unifiedLibrary } = usePlayer();
 
   useEffect(() => {
     setMounted(true);
@@ -90,33 +83,6 @@ export const SpotilarkLayout = ({
       authListener.subscription.unsubscribe();
     };
   }, [supabase.auth]);
-
-  useEffect(() => {
-    initCapacitor(
-      playTrack,
-      (path) => router.push(path),
-      (trackId) => unifiedLibrary.find((t) => t.id === trackId)
-    );
-  }, [playTrack, router, unifiedLibrary]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      const newWidth = window.innerWidth - e.clientX;
-      setRightPanelWidth(Math.max(240, Math.min(600, newWidth)));
-    };
-    const handleMouseUp = () => {
-      isResizingRef.current = false;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
 
   // Render a minimal UI on the server to prevent hydration mismatch
   if (!mounted) {
@@ -180,16 +146,15 @@ export const SpotilarkLayout = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <Link href="/search" passHref>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full h-10 w-10 hover:bg-primary/5 active:scale-90 transition-all text-muted-foreground"
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-          </Link>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-10 w-10 hover:bg-primary/5 active:scale-90 transition-all text-muted-foreground"
+            onClick={() => window.location.reload()}
+          >
+            <RotateCw className="h-5 w-5" />
+          </Button>
 
           <Button
             variant="ghost"
@@ -204,71 +169,63 @@ export const SpotilarkLayout = ({
             )}
           </Button>
 
-          <DownloadManager />
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant='ghost' size='icon' className='rounded-full'>
                 <MoreVertical className='h-5 w-5 text-muted-foreground' />
               </Button>
             </DropdownMenuTrigger>
-              <DropdownMenuContent align='end' className="w-48 p-2 rounded-2xl shadow-2xl border-primary/5">
-                <DropdownMenuItem onClick={() => window.location.reload()} className="rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <RotateCw className='h-4 w-4' />
-                    <span>Refresh App</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="rounded-xl">
-                  <Link href='/upload' className="flex items-center gap-2">
-                    <CloudUpload className='h-4 w-4' />
-                    <span>Upload</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="rounded-xl">
-                  <Link href='/settings' className="flex items-center gap-2">
-                    <Settings className='h-4 w-4' />
-                    <span>Settings</span>
-                  </Link>
-                </DropdownMenuItem>
-                {session ? (
-                  <>
-                    <DropdownMenuItem asChild className="rounded-xl">
-                      <Link href='/profile' className="flex items-center gap-2">
-                        <User className='h-4 w-4' />
-                        <span>Profile</span>
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-primary/5" />
-                    <DropdownMenuItem
-                      className="rounded-xl text-destructive focus:text-destructive focus:bg-destructive/5"
-                      onClick={async () => {
-                        await supabase.auth.signOut();
-                        router.push('/login');
-                        router.refresh();
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        <LogOut className='h-4 w-4' />
-                        <span>Logout</span>
-                      </div>
-                    </DropdownMenuItem>
-                  </>
-                ) : (
+            <DropdownMenuContent align='end' className="w-48 p-2 rounded-2xl shadow-2xl border-primary/5">
+              {session ? (
+                <>
+                  <DropdownMenuItem onClick={() => window.location.reload()} className="rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <RotateCw className='h-4 w-4' />
+                      <span>Refresh App</span>
+                    </div>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl">
-                    <Link href='/login' className="flex items-center gap-2">
-                      <LogIn className='h-4 w-4' />
-                      <span>Login / Sign Up</span>
+                    <Link href='/profile' className="flex items-center gap-2">
+                      <User className='h-4 w-4' />
+                      <span>Profile</span>
                     </Link>
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
+                  <DropdownMenuItem asChild className="rounded-xl">
+                    <Link href='/settings' className="flex items-center gap-2">
+                      <Settings className='h-4 w-4' />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-primary/5" />
+                  <DropdownMenuItem
+                    className="rounded-xl text-destructive focus:text-destructive focus:bg-destructive/5"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      router.push('/login');
+                      router.refresh();
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <LogOut className='h-4 w-4' />
+                      <span>Logout</span>
+                    </div>
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <DropdownMenuItem asChild className="rounded-xl">
+                  <Link href='/login' className="flex items-center gap-2">
+                    <LogIn className='h-4 w-4' />
+                    <span>Login / Sign Up</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </header>
 
       {/* MOBILE SCROLLABLE NAV */}
-      <nav className="md:hidden flex items-center gap-6 px-4 py-2 border-b border-border/40 bg-background/50 backdrop-blur-md overflow-x-auto no-scrollbar scroll-smooth font-sans">
+      <nav className="md:hidden flex items-center gap-6 px-4 py-2 border-b border-border/40 bg-background/50 backdrop-blur-md overflow-x-auto no-scrollbar scroll-smooth">
         {menuItems.map(({ icon: Icon, label, href }) => {
           const active = pathname === href;
           return (
@@ -280,6 +237,7 @@ export const SpotilarkLayout = ({
                 active ? "text-primary font-bold" : "text-muted-foreground"
               )}
             >
+              <Icon className={cn("h-4 w-4", active && "fill-current/20")} />
               <span className="text-xs uppercase tracking-widest">{label}</span>
             </Link>
           );
@@ -301,39 +259,21 @@ export const SpotilarkLayout = ({
         {children}
       </MainContent>
 
-      {/* Right Panel with Resizer */}
-      {isRightPanelOpen && (
-        <div
-          className="hidden lg:flex flex-col border-l relative h-full overflow-hidden"
-          style={{ width: rightPanelWidth, minWidth: 240, maxWidth: 600 }}
+      {/* Right Panel */}
+      <div className={cn(
+        isRightPanelOpen ? 'block' : 'hidden',
+        "lg:flex fixed lg:relative inset-y-0 right-0 z-50 lg:z-0 w-full lg:w-80 bg-background border-l"
+      )}>
+        <RightPanel />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 lg:hidden z-10"
+          onClick={() => setIsRightPanelOpen(false)}
         >
-          <div
-            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 active:bg-primary/70 transition-colors z-10 -ml-[2px]"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              isResizingRef.current = true;
-              document.body.style.cursor = 'col-resize';
-              document.body.style.userSelect = 'none';
-            }}
-          />
-          <RightPanel />
-        </div>
-      )}
-
-      {/* Mobile Right Panel Overlay */}
-      {isRightPanelOpen && (
-        <div className="lg:hidden fixed inset-y-0 right-0 z-50 w-80 max-w-[85vw] bg-background border-l shadow-2xl flex">
-          <RightPanel />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 z-10 h-10 w-10"
-            onClick={() => setIsRightPanelOpen(false)}
-          >
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-      )}
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
 
       <PlayerControls />
       <NowPlaying />

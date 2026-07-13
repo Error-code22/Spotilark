@@ -66,9 +66,7 @@ export const DeviceProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
     }, []);
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log("%c --- Spotilark Device Engine V1.5.0 --- ", "background: #7c3aed; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;");
-    }
+    console.log("%c --- Spotilark Device Engine V1.5.0 --- ", "background: #7c3aed; color: #fff; font-weight: bold; padding: 4px 8px; border-radius: 4px;");
     const deviceId = getDeviceId();
 
     const heartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);

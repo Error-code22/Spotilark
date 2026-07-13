@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">spotilark</string>
+    <string name="title_activity_main">spotilark</string>
+    <string name="package_name">com.spotilark.app</string>
+    <string name="custom_url_scheme">com.spotilark.app</string>
+</resources>

@@ -1,18 +1,8 @@
 import { PIPED_INSTANCES, INVIDIOUS_INSTANCES, COBALT_INSTANCES, shuffle, getStealthHeaders } from "./network-instances";
-import youtubedlExec from 'youtube-dl-exec';
-import { getYtDlpCookieArgs } from "./youtube-cookies";
-
-import { YTDLP_PATH } from './binary-paths';
-
 let ytdl: any;
 if (typeof window === "undefined") {
-    try {
-        ytdl = require("@distube/ytdl-core");
-    } catch {}
+    ytdl = require("@distube/ytdl-core");
 }
-
-const ytDlpStreamCache = new Map<string, { audioUrl: string | null; videoUrl: string | null; ts: number }>();
-const STREAM_CACHE_TTL = 5 * 60 * 1000;
 
 export interface ResolvedStreams {
     audioUrl: string | null;
@@ -117,85 +107,14 @@ export async function resolveYouTubeStreams(videoId: string, quality: string = '
     if (pipedWinner) {
         const { data, winner } = pipedWinner;
         console.log(`[YoutubeUtils] Piped Race Winner: ${winner}`);
-        const audioFormats = (data.audioStreams || [])
-            .filter((s: any) => s.mimeType?.includes('audio/mp4') || s.mimeType?.includes('audio/mpeg') || s.mimeType?.includes('audio/ogg') || s.mimeType?.includes('audio/wav'))
-            .sort(sortBitrate);
+        const audioFormats = (data.audioStreams || []).sort(sortBitrate);
         streams.audioUrl = audioFormats[0]?.url || null;
-
-        // Fallback to any audio stream if no compatible format found
-        if (!streams.audioUrl) {
-            const anyAudio = (data.audioStreams || []).sort(sortBitrate);
-            streams.audioUrl = anyAudio[0]?.url || null;
-        }
 
         const videoFormats = (data.videoStreams || []).sort(sortBitrate);
         streams.videoUrl = videoFormats[0]?.url || null;
         if (streams.audioUrl || streams.videoUrl) {
             console.log(`[YoutubeUtils] ✓ Piped resolution SUCCESS`);
             return streams;
-        }
-    }
-
-    // --- 1.5. FALLBACK: Local yt-dlp (Server-side, unlimited) ---
-    if (typeof window === 'undefined') {
-        const cached = ytDlpStreamCache.get(videoId);
-        if (cached && Date.now() - cached.ts < STREAM_CACHE_TTL) {
-            console.log(`[YoutubeUtils] yt-dlp cache HIT for ${videoId}`);
-            return { audioUrl: cached.audioUrl, videoUrl: cached.videoUrl };
-        }
-
-        try {
-            console.log(`[YoutubeUtils] Fallback: local yt-dlp...`);
-            const cookieArgs = await getYtDlpCookieArgs();
-            const result = await youtubedlExec(`https://www.youtube.com/watch?v=${videoId}`, {
-                dumpSingleJson: true,
-                noCheckCertificates: true,
-                noWarnings: true,
-                skipDownload: true,
-                format: 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-                addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-                socketTimeout: 15,
-                binaryPath: YTDLP_PATH,
-                ...cookieArgs,
-            } as any) as any;
-
-            if (result.url) {
-                streams.audioUrl = result.url;
-                ytDlpStreamCache.set(videoId, { audioUrl: result.url, videoUrl: null, ts: Date.now() });
-                console.log(`[YoutubeUtils] ✓ yt-dlp resolution SUCCESS`);
-                return streams;
-            }
-
-            const formats = result.formats || [];
-            const audioFormats = formats
-                .filter((f: any) => f.acodec !== 'none' && (!f.vcodec || f.vcodec === 'none'))
-                .sort((a: any, b: any) => {
-                    const rateA = a.abr || a.audio_bitrate || 0;
-                    const rateB = b.abr || b.audio_bitrate || 0;
-                    return quality === 'low' ? rateA - rateB : rateB - rateA;
-                });
-            if (audioFormats.length > 0) {
-                streams.audioUrl = audioFormats[0].url;
-            }
-
-            const videoFormats = formats
-                .filter((f: any) => f.vcodec && f.vcodec !== 'none')
-                .sort((a: any, b: any) => {
-                    const rateA = a.height || 0;
-                    const rateB = b.height || 0;
-                    return quality === 'low' ? rateA - rateB : rateB - rateA;
-                });
-            if (videoFormats.length > 0) {
-                streams.videoUrl = videoFormats[0].url;
-            }
-
-            if (streams.audioUrl || streams.videoUrl) {
-                ytDlpStreamCache.set(videoId, { audioUrl: streams.audioUrl, videoUrl: streams.videoUrl, ts: Date.now() });
-                console.log(`[YoutubeUtils] ✓ yt-dlp format resolution SUCCESS`);
-                return streams;
-            }
-        } catch (e: any) {
-            console.log(`[YoutubeUtils] yt-dlp fallback failed: ${e.message}`);
         }
     }
 
@@ -257,7 +176,6 @@ export async function resolveYouTubeStreams(videoId: string, quality: string = '
     const cobaltPool = shuffle(COBALT_INSTANCES);
     for (const instance of cobaltPool.slice(0, 3)) {
         try {
-            console.log(`[YoutubeUtils] Falling back to Cobalt: ${instance}`);
             const cobaltRequest = {
                 url: `https://www.youtube.com/watch?v=${videoId}`,
                 downloadMode: "audio",
