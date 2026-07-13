@@ -12,7 +12,7 @@ import { YTDLP_PATH } from "@/lib/binary-paths";
 
 
 const videoCacheDir = join(tmpdir(), "spotilark-videos");
-const COOKIE_PATH = join(tmpdir(), "spotilark-cookies", "youtube-main.txt");
+const COOKIE_FILE = join(tmpdir(), "spotilark-cookies", "youtube-cookies.txt");
 
 function ensureCacheDirSync() {
     if (!existsSync(videoCacheDir)) mkdirSync(videoCacheDir, { recursive: true });
@@ -32,7 +32,7 @@ async function findCachedFile(videoId: string): Promise<string | null> {
 
 function getCookieArgs(): string[] {
     try {
-        if (existsSync(COOKIE_PATH)) return ['--cookies', COOKIE_PATH];
+        if (existsSync(COOKIE_FILE)) return ['--cookies', COOKIE_FILE];
     } catch {}
     return [];
 }
@@ -94,9 +94,10 @@ export async function GET(req: NextRequest) {
         // 2. Stream directly from yt-dlp (Splayer pattern — spawn + pipe)
         const url = `https://www.youtube.com/watch?v=${videoId}`;
         const args = [
-            '-f', `bestvideo[height<=${quality}]+bestaudio/best[height<=${quality}]/best`,
-            '--extractor-args', 'youtube:player_client=web',
+            '-f', 'best[height<=720]/best',
             '--merge-output-format', 'mp4',
+            '--no-playlist', '--no-warnings', '--no-check-certificates',
+            ...getCookieArgs(),
             '--no-playlist', '--no-warnings', '--no-check-certificates',
             '-o', '-',
             ...getCookieArgs(),

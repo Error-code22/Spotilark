@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = 'force-dynamic';
 import { readdir } from "fs/promises";
 import { join } from "path";
-import { homedir } from "os";
+import { homedir, tmpdir } from "os";
 import { spawn, execFile } from "child_process";
 import { promisify } from "util";
 import { existsSync, mkdirSync } from "fs";
@@ -11,7 +11,7 @@ import { YTDLP_PATH, FFMPEG_PATH } from "@/lib/binary-paths";
 
 
 const execFileAsync = promisify(execFile);
-const COOKIE_PATH = join(homedir(), "AppData", "Local", "Temp", "spotilark-cookies", "youtube-main.txt");
+const COOKIE_FILE = join(tmpdir(), "spotilark-cookies", "youtube-cookies.txt");
 
 const downloadDir = join(homedir(), "Music", "Spotilark-Music");
 
@@ -21,7 +21,7 @@ function ensureDownloadDir() {
 
 function getCookieArgs(): string[] {
     try {
-        if (existsSync(COOKIE_PATH)) return ['--cookies', COOKIE_PATH];
+        if (existsSync(COOKIE_FILE)) return ['--cookies', COOKIE_FILE];
     } catch {}
     return [];
 }
@@ -109,7 +109,6 @@ async function processDownload(taskId: string) {
         ytdlpArgs = [
             '-x', '--audio-format', 'mp3', '--audio-quality', '0',
             '--embed-thumbnail',
-            '--extractor-args', 'youtube:player_client=web',
             '--ffmpeg-location', FFMPEG_PATH,
             '-o', `${outputPath}.%(ext)s`,
             '--no-playlist', '--no-warnings', '--no-check-certificates',
@@ -119,9 +118,8 @@ async function processDownload(taskId: string) {
         ];
     } else {
         ytdlpArgs = [
-            '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+            '-f', 'best[height<=720]/best',
             '--merge-output-format', 'mp4',
-            '--extractor-args', 'youtube:player_client=web',
             '--embed-thumbnail',
             '--ffmpeg-location', FFMPEG_PATH,
             '-o', `${outputPath}.%(ext)s`,
