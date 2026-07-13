@@ -130,7 +130,7 @@ export default function SearchPage() {
         artist: track.artist || track.channel || 'YouTube',
         album: 'YouTube',
         cover: track.cover || track.thumbnail || null,
-        source_url: `/api/stream/youtube?v=${videoId}`,
+        source_url: `/api/stream/youtube?v=${videoId}&redirect=true`,
         storage_type: 'stream',
         duration: track.duration || 0,
         created_at: new Date().toISOString(),

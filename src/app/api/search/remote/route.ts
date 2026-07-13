@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
                             duration: 0, // Duration requires additional API call
                             source: 'youtube',
                             storage_type: 'stream',
-                            source_url: `/api/stream/youtube?v=${item.id.videoId}`
+                            source_url: `/api/stream/youtube?v=${item.id.videoId}&redirect=true`
                         }));
                         return NextResponse.json(tracks);
                     }
@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
                     duration: v.seconds,
                     source: 'youtube',
                     storage_type: 'stream',
-                    source_url: `/api/stream/youtube?v=${v.videoId}`
+                    source_url: `/api/stream/youtube?v=${v.videoId}&redirect=true`
                 }));
                 return NextResponse.json(tracks.slice(0, 30));
             }
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
                     cover: item.thumbnail || (vid ? `https://i.ytimg.com/vi/${vid}/mqdefault.jpg` : null),
                     source: 'youtube',
                     storage_type: 'stream',
-                    source_url: vid ? `/api/stream/youtube?v=${vid}` : null
+                    source_url: vid ? `/api/stream/youtube?v=${vid}&redirect=true` : null
                 };
             }).filter((t: any) => t.remoteId && t.title);
 
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest) {
                     `https://i.ytimg.com/vi/${item.videoId}/mqdefault.jpg`,
                 source: 'youtube',
                 storage_type: 'stream',
-                source_url: `/api/stream/youtube?v=${item.videoId}`
+                source_url: `/api/stream/youtube?v=${item.videoId}&redirect=true`
             })).filter((t: any) => t.remoteId && t.title);
 
             if (tracks.length > 0) return NextResponse.json(tracks.slice(0, 20));

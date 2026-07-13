@@ -750,7 +750,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
             if (trackId) {
               console.log(`[Player] Using server proxy for YouTube: ${currentTrack.title}`);
-              audioSrc = `/api/stream/youtube?v=${trackId}`;
+              audioSrc = `/api/stream/youtube?v=${trackId}&redirect=true`;
             }
           }
 
@@ -837,7 +837,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                       const trackId = typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-') ?
                         currentTrack.id.replace('yt-', '') : null;
                       if (trackId) {
-                        finalUrl = `/api/stream/youtube?v=${trackId}`;
+                        finalUrl = `/api/stream/youtube?v=${trackId}&redirect=true`;
                       }
                     } else if (currentTrack.storage_type === 'cloud' && currentTrack.source_url?.includes('storage/stream')) {
                       const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
@@ -1096,7 +1096,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             if (trackId) {
               // For YouTube, we don't resolve client-side anymore.
               // We just set the proxy URL in the cache so it's ready to go.
-              const proxyUrl = `/api/stream/youtube?v=${trackId}`;
+              const proxyUrl = `/api/stream/youtube?v=${trackId}&redirect=true`;
               streamCacheRef.current.set(nextTrack.id, proxyUrl);
               console.log(`[Player] Pre-fetch SUCCESS (YouTube Proxy Set)`);
             }
@@ -1339,7 +1339,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           ? rightTrack.id.replace('yt-', '')
           : null;
         if (trackId) {
-          audioSrc = `/api/stream/youtube?v=${trackId}`;
+          audioSrc = `/api/stream/youtube?v=${trackId}&redirect=true`;
         }
       }
       // Telegram

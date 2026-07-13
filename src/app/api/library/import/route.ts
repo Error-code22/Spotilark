@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
         console.log(`[Import] Starting import for: ${title} (${videoId})`);
 
         // Store YouTube stream URL directly (no download needed)
-        const audioStreamUrl = `/api/stream/youtube?v=${videoId}`;
+        const audioStreamUrl = `/api/stream/youtube?v=${videoId}&redirect=true`;
         const finalCoverUrl = cover || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
         console.log(`[Import] Inserting DB record...`);

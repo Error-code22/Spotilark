@@ -605,7 +605,7 @@ export default function VideoPage() {
                       title: playingVideo.title,
                       artist: "Video",
                       album: null,
-                      source_url: videoId ? `/api/stream/youtube?v=${videoId}` : playingVideo.src,
+                      source_url: videoId ? `/api/stream/youtube?v=${videoId}&redirect=true` : playingVideo.src,
                       duration: null,
                       cover: playingVideo.cover,
                       created_at: new Date().toISOString(),
