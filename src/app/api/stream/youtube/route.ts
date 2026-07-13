@@ -25,10 +25,10 @@ export async function GET(req: NextRequest) {
             }, { status: 503 });
         }
 
-        // Redirect mode: Return CDN URL directly (zero server bandwidth)
+        // Return CDN URL as JSON (client plays directly)
         if (redirect) {
-            console.log(`[Stream] Redirecting to CDN for ${videoId}`);
-            return NextResponse.redirect(audioUrl, 302);
+            console.log(`[Stream] Returning CDN URL for ${videoId}`);
+            return NextResponse.json({ url: audioUrl });
         }
 
         // Proxy mode: Stream through server (fallback for compatibility)

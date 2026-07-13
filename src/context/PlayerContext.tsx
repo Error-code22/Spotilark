@@ -749,8 +749,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             }
 
             if (trackId) {
-              console.log(`[Player] Using server proxy for YouTube: ${currentTrack.title}`);
-              audioSrc = `/api/stream/youtube?v=${trackId}&redirect=true`;
+              console.log(`[Player] Resolving YouTube URL: ${currentTrack.title}`);
+              try {
+                const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                const data = await res.json();
+                if (data.url) {
+                  audioSrc = data.url;
+                  console.log(`[Player] Got CDN URL for: ${currentTrack.title}`);
+                } else {
+                  console.error(`[Player] No URL returned for: ${currentTrack.title}`);
+                }
+              } catch (e) {
+                console.error(`[Player] Failed to resolve YouTube URL:`, e);
+              }
             }
           }
 
@@ -837,7 +848,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                       const trackId = typeof currentTrack.id === 'string' && currentTrack.id.startsWith('yt-') ?
                         currentTrack.id.replace('yt-', '') : null;
                       if (trackId) {
-                        finalUrl = `/api/stream/youtube?v=${trackId}&redirect=true`;
+                        try {
+                          const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                          const data = await res.json();
+                          if (data.url) finalUrl = data.url;
+                        } catch {}
                       }
                     } else if (currentTrack.storage_type === 'cloud' && currentTrack.source_url?.includes('storage/stream')) {
                       const match = currentTrack.source_url.match(/[?&]file_id=([^&]+)/);
@@ -1094,11 +1109,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
               (nextTrack.source_url ? new URL(nextTrack.source_url, window.location.href).searchParams.get('v') : null);
 
             if (trackId) {
-              // For YouTube, we don't resolve client-side anymore.
-              // We just set the proxy URL in the cache so it's ready to go.
-              const proxyUrl = `/api/stream/youtube?v=${trackId}&redirect=true`;
-              streamCacheRef.current.set(nextTrack.id, proxyUrl);
-              console.log(`[Player] Pre-fetch SUCCESS (YouTube Proxy Set)`);
+              try {
+                const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                const data = await res.json();
+                if (data.url) {
+                  streamCacheRef.current.set(nextTrack.id, data.url);
+                  console.log(`[Player] Pre-fetch SUCCESS`);
+                }
+              } catch (e) {
+                console.error("YouTube prefetch failed", e);
+              }
             }
           } catch (e) {
             console.error("YouTube prefetch failed", e);
@@ -1339,7 +1359,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           ? rightTrack.id.replace('yt-', '')
           : null;
         if (trackId) {
-          audioSrc = `/api/stream/youtube?v=${trackId}&redirect=true`;
+          try {
+            const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+            const data = await res.json();
+            if (data.url) audioSrc = data.url;
+          } catch {}
         }
       }
       // Telegram
