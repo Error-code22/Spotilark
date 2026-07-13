@@ -7,8 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/context/SettingsContext";
-import { Music, Palette, Trash2, Copy } from "lucide-react";
+import { Music, Palette, Trash2, Copy, Shield } from "lucide-react";
 import { ThemeSelector } from "@/components/ThemeSelector";
+import { YouTubeAuth } from "@/components/YouTubeAuth";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -56,6 +57,7 @@ const SettingsPage = () => {
   const [keepLyrics, setKeepLyrics] = useState(true);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [duplicates, setDuplicates] = useState<{ key: string; tracks: any[] }[]>([]);
+  const [showYouTubeAuth, setShowYouTubeAuth] = useState(false);
 
   return (
     <SpotilarkLayout>
@@ -368,8 +370,33 @@ const SettingsPage = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* YouTube Auth */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                YouTube Authentication
+              </CardTitle>
+              <CardDescription>Upload cookies for unlimited YouTube streaming</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-3">
+                Upload YouTube cookies to bypass bot detection and enable streaming.
+              </p>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => setShowYouTubeAuth(true)}
+              >
+                <Shield className="h-4 w-4" />
+                Manage YouTube Auth
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
+      <YouTubeAuth open={showYouTubeAuth} onOpenChange={setShowYouTubeAuth} />
     </SpotilarkLayout>
   );
 };
