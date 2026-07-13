@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import { AddSongsToPlaylistDialog } from '@/components/add-songs-to-playlist-dialog';
+import { EditPlaylistDialog } from '@/components/edit-playlist-dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 
@@ -37,103 +38,77 @@ export default function PlaylistDetailsPageWrapper() {
 
   const { user, isLoading: userLoading } = useUser();
 
-  useEffect(() => {
+  const fetchPlaylistData = async () => {
     if (!user || !id) return;
+    try {
+      setLoading(true);
+      setError(null);
 
-    const fetchPlaylistData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      const supabase = createClient();
 
-        const supabase = createClient();
+      let playlistData: Playlist | null = null;
+      let tracksData: Track[] = [];
 
-        let playlistData: Playlist | null = null;
-        let tracksData: Track[] = [];
+      if (id === 'playing') {
+        const { data: tracks, error } = await supabase
+          .from('tracks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-        if (id === 'playing') {
-          // Fetch all user tracks for the "Playing" playlist
-          const { data: tracks, error } = await supabase
-            .from('tracks')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+        if (error) throw new Error(error.message);
 
-          if (error) {
-            throw new Error(error.message);
-          }
+        playlistData = {
+          id: 'playing',
+          name: 'Playing',
+          description: 'All your uploaded music',
+          cover: tracks?.[0]?.cover || 'https://placehold.co/300x300.png?text=Playing',
+          songs: tracks || [],
+        };
+        tracksData = tracks || [];
+      } else {
+        const { data, error } = await supabase
+          .from('playlists')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .single();
 
-          playlistData = {
-            id: 'playing',
-            name: 'Playing',
-            description: 'All your uploaded music',
-            cover: tracks?.[0]?.cover || 'https://placehold.co/300x300.png?text=Playing',
-            songs: tracks || [],
-          };
-          tracksData = tracks || [];
-        } else {
-          // Fetch specific playlist details
-          const { data, error } = await supabase
-            .from('playlists')
-            .select('*')
-            .eq('id', id)
-            .eq('user_id', user.id)
-            .single();
+        if (error) throw new Error(error.message);
+        playlistData = data;
 
-          if (error) {
-            throw new Error(error.message);
-          }
+        if (data) {
+          const { data: psData, error: psError } = await supabase
+            .from('playlist_songs')
+            .select('track_id')
+            .eq('playlist_id', id);
 
-          playlistData = data;
-
-          // Fetch songs in the playlist
-          if (data) {
-            // First, get the playlist_songs relationship
-            const { data: playlistSongsData, error: playlistSongsError } = await supabase
-              .from('playlist_songs')
-              .select('track_id')
-              .eq('playlist_id', id);
-
-            if (playlistSongsError) {
-              console.error("Error fetching playlist songs:", playlistSongsError);
-              tracksData = [];
-            } else if (!playlistSongsData || playlistSongsData.length === 0) {
-              tracksData = [];
-            } else {
-              const trackIds = playlistSongsData.map((item: any) => item.track_id);
-              if (trackIds.length > 0) {
-                // Then get the actual track data
-                const { data: tracksDataResult, error: tracksError } = await supabase
-                  .from('tracks')
-                  .select('*')
-                  .in('id', trackIds);
-
-                if (tracksError) {
-                  console.error("Error fetching track details:", tracksError);
-                  tracksData = [];
-                } else {
-                  tracksData = tracksDataResult || [];
-                }
-              } else {
-                tracksData = [];
-              }
-            }
+          if (!psError && psData && psData.length > 0) {
+            const trackIds = psData.map((item: any) => item.track_id);
+            const { data: tData, error: tError } = await supabase
+              .from('tracks')
+              .select('*')
+              .in('id', trackIds);
+            if (!tError) tracksData = tData || [];
           }
         }
-
-        if (playlistData) {
-          setPlaylist(playlistData);
-          setTracksInPlaylist(tracksData);
-        } else {
-          setError('Playlist not found');
-        }
-      } catch (err: any) {
-        console.error('Error fetching playlist:', err);
-        setError(err.message || 'Error loading playlist');
-      } finally {
-        setLoading(false);
       }
-    };
 
+      if (playlistData) {
+        setPlaylist(playlistData);
+        setTracksInPlaylist(tracksData);
+      } else {
+        setError('Playlist not found');
+      }
+    } catch (err: any) {
+      console.error('Error fetching playlist:', err);
+      setError(err.message || 'Error loading playlist');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPlaylistData();
   }, [user, id]);
 
@@ -187,11 +162,21 @@ export default function PlaylistDetailsPageWrapper() {
               className="object-cover"
             />
           </div>
-          <div>
-            <h2 className="text-sm font-medium text-muted-foreground">Playlist</h2>
-            <h1 className="text-5xl font-bold mt-2">{playlist.name}</h1>
-            <p className="text-muted-foreground mt-2">{playlist.description}</p>
-            <p className="text-sm text-muted-foreground mt-1">{tracksInPlaylist.length} songs</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font-medium text-muted-foreground">Playlist</h2>
+                <h1 className="text-5xl font-bold mt-2 truncate">{playlist.name}</h1>
+              </div>
+              {playlist.id !== 'playing' && (
+                <EditPlaylistDialog
+                  playlist={playlist}
+                  onPlaylistUpdated={fetchPlaylistData}
+                />
+              )}
+            </div>
+            <p className="text-muted-foreground mt-4 line-clamp-2">{playlist.description}</p>
+            <p className="text-sm text-muted-foreground mt-2">{tracksInPlaylist.length} songs</p>
           </div>
         </div>
 

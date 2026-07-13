@@ -1,11 +1,10 @@
 import type { NextConfig } from 'next';
 
+const isExport = process.env.NEXT_PUBLIC_ENV === 'export';
+
 const nextConfig: NextConfig = {
-  /* config options here */
-  output: process.env.NEXT_PUBLIC_ENV !== 'export' ? undefined : 'export',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  output: isExport ? 'export' : 'standalone',
+  transpilePackages: ['lucide-react'],
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,

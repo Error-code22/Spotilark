@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-static';
+
 export async function GET(req: Request) {
     try {
         // 1. Security Check (Optional but recommended)

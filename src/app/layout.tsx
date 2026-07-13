@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Spotilark",
   },
   formatDetection: {
@@ -51,7 +51,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${caveat.variable}`} suppressHydrationWarning>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <Providers>
           <SettingsProvider>
             <LayoutContent>
@@ -64,4 +64,3 @@ export default function RootLayout({
     </html>
   );
 }
-

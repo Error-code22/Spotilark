@@ -10,12 +10,11 @@ import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Headphones, ListMusic, Music, Pencil, User, Tag, Flame, BarChart, History, Download, Album, Palette, Image as ImageIcon, Share2, LogOut, Cloud, Heart, Settings, Users } from 'lucide-react';
+import { Headphones, ListMusic, Music, Pencil, User, Tag, Flame, BarChart, History, Download, Album, Palette, Image as ImageIcon, Share2, LogOut, Cloud, Heart, Settings, Shield } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { EditProfileDialog } from '@/components/profile/EditProfileDialog';
-import { FriendsSection } from '@/components/profile/FriendsSection';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export default function ProfilePageWrapper() {
@@ -23,11 +22,10 @@ export default function ProfilePageWrapper() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
-  const { likedTrackIds, currentTrack } = usePlayer();
-  const { showRecentlyPlayed } = useSettings();
+  const { likedTrackIds, currentTrack, recentlyPlayed, playCounts, unifiedLibrary } = usePlayer();
   const { theme, lightTheme, darkTheme } = useTheme();
 
-  const { user: authUser, isLoading: userLoading } = useUser();
+  const { user: authUser, isLoading: userLoading, isAdmin } = useUser();
   const [userStats, setUserStats] = useState<any>(null);
   const [userCollections, setUserCollections] = useState<any[]>([]);
   const [loadingStats, setLoadingStats] = useState(true);
@@ -38,6 +36,42 @@ export default function ProfilePageWrapper() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [deleteStep, setDeleteStep] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const moodTagColors: Record<string, { bg: string; text: string }> = {
+    'Active Listener': { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
+    'Diverse Tastes': { bg: 'bg-blue-500/10', text: 'text-blue-500' },
+    'Curated Collection': { bg: 'bg-violet-500/10', text: 'text-violet-500' },
+    'Music Lover': { bg: 'bg-amber-500/10', text: 'text-amber-500' },
+    'Getting Started': { bg: 'bg-cyan-500/10', text: 'text-cyan-500' },
+    'Music Enthusiast': { bg: 'bg-rose-500/10', text: 'text-rose-500' },
+  };
+
+  const getMoodTagColor = (tag: string) => {
+    return moodTagColors[tag] || { bg: 'bg-primary/10', text: 'text-primary' };
+  };
+
+  const fallbackStats = (() => {
+    if (userStats && userStats.total_minutes_listened > 0) return null;
+    const playCountEntries = Object.entries(playCounts);
+    if (playCountEntries.length === 0) return null;
+    const totalSongs = playCountEntries.length;
+    const artistCounts: Record<string, number> = {};
+    const albumCounts: Record<string, number> = {};
+    for (const [trackId, count] of playCountEntries) {
+      const track = recentlyPlayed.find(t => t.id === trackId) || unifiedLibrary.find(t => t.id === trackId);
+      if (track?.artist) {
+        artistCounts[track.artist] = (artistCounts[track.artist] || 0) + count;
+      }
+      if (track?.album) {
+        albumCounts[track.album] = (albumCounts[track.album] || 0) + count;
+      }
+    }
+    const sortedArtists = Object.entries(artistCounts).sort((a, b) => b[1] - a[1]);
+    const sortedAlbums = Object.entries(albumCounts).sort((a, b) => b[1] - a[1]);
+    const topArtist = sortedArtists.length > 0 ? sortedArtists[0][0] : 'None';
+    const topGenre = sortedAlbums.length > 0 ? sortedAlbums[0][0] : 'None';
+    return { totalSongs, topArtist, topGenre };
+  })();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -90,13 +124,13 @@ export default function ProfilePageWrapper() {
                 name: "Playlists",
                 icon: ListMusic,
                 count: playlists?.length || 0,
-                cover: playlists?.[0]?.cover || '/SL.png'
+                cover: playlists?.[0]?.cover || '/spotilark-without-text-white.png'
               },
               {
                 name: "Liked Songs",
                 icon: Heart,
                 count: likedTrackIds.size,
-                cover: '/SL.png'
+                cover: '/spotilark-without-text-white.png'
               }
             ];
             setUserCollections(collectionsData);
@@ -237,6 +271,28 @@ export default function ProfilePageWrapper() {
       playlists?.forEach((p, i) => {
         textContent += `${i + 1}. ${p.name} (${p.description || 'No description'})\n`;
       });
+      textContent += `\n`;
+
+      textContent += `MOOD TAGS (${moodTags.length})\n`;
+      textContent += `------------\n`;
+      if (moodTags.length > 0) {
+        textContent += moodTags.join(', ') + '\n';
+      } else {
+        textContent += `No mood tags generated yet\n`;
+      }
+      textContent += `\n`;
+
+      textContent += `ACHIEVEMENT BADGES (${badges.length})\n`;
+      textContent += `---------------------\n`;
+      if (badges.length > 0) {
+        badges.forEach((b: any) => {
+          textContent += `${b.icon} ${b.name} - ${b.description}\n`;
+        });
+      } else {
+        textContent += `No badges earned yet\n`;
+      }
+      textContent += `\n`;
+
       textContent += `\n\nGenerated by SpotiLark - Your Personal Music Cloud`;
 
       const blob = new Blob([textContent], { type: 'text/plain' });
@@ -299,28 +355,32 @@ export default function ProfilePageWrapper() {
                 <p className='text-sm font-medium'>Total Minutes Listened</p>
                 <Headphones className='h-4 w-4 text-muted-foreground' />
               </div>
-              <div className='text-2xl font-bold'>{userStats?.total_minutes_listened ? Math.floor(userStats.total_minutes_listened / 60) + ' hrs' : '0 hrs'}</div>
+              <div className='text-2xl font-bold'>
+                {userStats?.total_minutes_listened
+                  ? Math.floor(userStats.total_minutes_listened / 60) + ' hrs'
+                  : (fallbackStats ? 'Tracking...' : '0 hrs')}
+              </div>
             </div>
             <div className='p-4 rounded-lg border'>
               <div className='flex flex-row items-center justify-between space-y-0 pb-2'>
                 <p className='text-sm font-medium'>Songs Played</p>
                 <Music className='h-4 w-4 text-muted-foreground' />
               </div>
-              <div className='text-2xl font-bold'>{userStats?.songs_played || 0}</div>
+              <div className='text-2xl font-bold'>{userStats?.songs_played || fallbackStats?.totalSongs || 0}</div>
             </div>
             <div className='p-4 rounded-lg border'>
               <div className='flex flex-row items-center justify-between space-y-0 pb-2'>
                 <p className='text-sm font-medium'>Top Artist</p>
                 <User className='h-4 w-4 text-muted-foreground' />
               </div>
-              <div className='text-2xl font-bold truncate' title={userStats?.top_artist}>{showRecentlyPlayed ? (userStats?.top_artist || 'None') : 'Hidden'}</div>
+              <div className='text-2xl font-bold truncate' title={userStats?.top_artist || fallbackStats?.topArtist}>{userStats?.top_artist || fallbackStats?.topArtist || 'None'}</div>
             </div>
             <div className='p-4 rounded-lg border'>
               <div className='flex flex-row items-center justify-between space-y-0 pb-2'>
                 <p className='text-sm font-medium'>Top Genre</p>
                 <Tag className='h-4 w-4 text-muted-foreground' />
               </div>
-              <div className='text-2xl font-bold truncate' title={userStats?.top_genre}>{showRecentlyPlayed ? (userStats?.top_genre || 'None') : 'Hidden'}</div>
+              <div className='text-2xl font-bold truncate' title={userStats?.top_genre || fallbackStats?.topGenre}>{userStats?.top_genre || fallbackStats?.topGenre || 'None'}</div>
             </div>
           </div>
         )}
@@ -358,7 +418,7 @@ export default function ProfilePageWrapper() {
           <div className="h-px flex-1 bg-primary/10 ml-6 hidden md:block"></div>
         </div>
 
-        <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12'>
+        <div className='grid gap-6 md:grid-cols-2 mb-12'>
           {/* THEME CARD */}
           <div className='p-8 rounded-[40px] bg-card/40 border-none shadow-sm hover:shadow-xl transition-all group relative overflow-hidden active:scale-[0.98]'>
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/10 transition-colors" />
@@ -398,9 +458,12 @@ export default function ProfilePageWrapper() {
               <div>
                 <h3 className='text-xl font-black mb-2'>Mood Tags</h3>
                 <div className='flex flex-wrap gap-2'>
-                  {moodTags.length > 0 ? moodTags.map((tag) => (
-                    <span key={tag} className='bg-amber-500/10 text-amber-500 px-3 py-1 rounded-xl text-xs font-bold'>{tag}</span>
-                  )) : <p className='text-xs text-muted-foreground font-medium'>Listen more to analyze your vibe!</p>}
+                  {moodTags.length > 0 ? moodTags.map((tag) => {
+                    const colors = getMoodTagColor(tag);
+                    return (
+                      <span key={tag} className={`${colors.bg} ${colors.text} px-3 py-1 rounded-xl text-xs font-bold`}>{tag}</span>
+                    );
+                  }) : <p className='text-xs text-muted-foreground font-medium'>Listen more to analyze your vibe!</p>}
                 </div>
               </div>
             </div>
@@ -420,16 +483,52 @@ export default function ProfilePageWrapper() {
               <div>
                 <h3 className='text-xl font-black mb-2'>Level & Badges</h3>
                 <div className='flex flex-wrap gap-2'>
-                  {badges.length > 0 ? badges.map((badge: any) => (
-                    <div key={badge.type} className='flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-3 py-1.5 rounded-xl text-xs font-bold' title={badge.description}>
-                      <span>{badge.icon}</span>
-                      <span>{badge.name}</span>
-                    </div>
-                  )) : <p className='text-xs text-muted-foreground font-medium'>Your trophy cabinet is empty.</p>}
+                  {badges.length > 0 ? badges.map((badge: any) => {
+                    const badgeColors: Record<string, { bg: string; text: string }> = {
+                      early_adopter: { bg: 'bg-amber-500/10', text: 'text-amber-500' },
+                      music_hoarder: { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
+                      social_butterfly: { bg: 'bg-pink-500/10', text: 'text-pink-500' },
+                      night_owl: { bg: 'bg-blue-500/10', text: 'text-blue-500' },
+                      playlist_curator: { bg: 'bg-violet-500/10', text: 'text-violet-500' },
+                      music_explorer: { bg: 'bg-orange-500/10', text: 'text-orange-500' },
+                    };
+                    const colors = badgeColors[badge.type] || { bg: 'bg-emerald-500/10', text: 'text-emerald-500' };
+                    return (
+                      <div key={badge.type} className={`flex items-center gap-2 ${colors.bg} ${colors.text} px-3 py-1.5 rounded-xl text-xs font-bold`} title={badge.description}>
+                        <span>{badge.icon}</span>
+                        <span>{badge.name}</span>
+                      </div>
+                    );
+                  }) : <p className='text-xs text-muted-foreground font-medium'>Your trophy cabinet is empty.</p>}
                 </div>
               </div>
             </div>
           </div>
+
+          {/* ADMIN CARD */}
+          {isAdmin && (
+            <div className='p-8 rounded-[40px] bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/20 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden active:scale-[0.98]'>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-primary/20 transition-colors" />
+
+              <div className="flex flex-col gap-6 relative z-10">
+                <div className="flex items-center justify-between">
+                  <div className="p-3 bg-primary/20 rounded-2xl text-primary">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-40">System Access</span>
+                </div>
+                <div>
+                  <h3 className='text-xl font-black mb-1'>Admin Dashboard</h3>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Manage users, tracks, and system settings
+                  </p>
+                </div>
+                <Button variant="default" size="sm" className="w-fit rounded-full font-bold bg-primary hover:bg-primary/90 group-hover:shadow-lg transition-shadow" onClick={() => router.push('/admin')}>
+                  Open Dashboard <Shield className="h-3 w-3 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* WRAPPED BANNER */}
           <div className='md:col-span-3 p-10 rounded-[40px] bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border border-primary/10 relative overflow-hidden group hover:shadow-2xl transition-all'>
@@ -455,9 +554,6 @@ export default function ProfilePageWrapper() {
             </div>
           </div>
         </div>
-
-        <h2 className='text-2xl font-bold mt-8 mb-4'>Friends & Social</h2>
-        <FriendsSection />
 
         <h2 className='text-2xl font-bold mt-8 mb-4'>Functional Shortcuts</h2>
         <div className='grid grid-cols-2 gap-4 md:gap-6 lg:grid-cols-3 mb-8'>
@@ -536,6 +632,6 @@ export default function ProfilePageWrapper() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </SpotilarkLayout>
+    </SpotilarkLayout >
   );
 }

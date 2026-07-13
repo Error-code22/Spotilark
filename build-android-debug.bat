@@ -4,31 +4,35 @@ echo    SPOTILARK ANDROID DEBUG BUILD
 echo ==========================================
 echo.
 
-:: Temporary move API folder to avoid Next.js static export errors
-if exist "src\app\api" (
-    echo [!] Temporarily hiding API folder for static export...
-    ren "src\app\api" "_api_tmp"
-)
-
-echo.
-echo Starting Android Debug Build...
-call npx tauri android build --debug
+:: 1. Build Next.js for static export
+echo [1/3] Building Web App (Static Export)...
+set NEXT_PUBLIC_ENV=export
+call npm run build
 if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo [!] Build failed! Check errors above.
-    goto restore
+    echo [!] Web Build failed!
+    pause
+    exit /b 1
+)
+
+:: 2. Sync to Android
+echo [2/3] Syncing to Android...
+call npx cap sync android
+if %ERRORLEVEL% NEQ 0 (
+    echo [!] Capacitor Sync failed!
+    pause
+    exit /b 1
+)
+
+:: 3. Build APK
+echo [3/3] Building Android APK...
+set JAVA_HOME=D:\Android studio\jbr
+call C:\gradle-9.1.0\bin\gradle.bat assembleDebug -p android --no-daemon
+if %ERRORLEVEL% NEQ 0 (
+    echo [!] Android Build failed!
+    pause
+    exit /b 1
 )
 
 echo.
-echo Build complete!
-echo APK location: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
-
-:restore
-:: Restore API folder if it was moved
-if exist "src\app\_api_tmp" (
-    echo [!] Restoring API folder...
-    ren "src\app\_api_tmp" "api"
-)
-
-echo.
+echo Build complete! APK: android\app\build\outputs\apk\debug\app-debug.apk
 pause

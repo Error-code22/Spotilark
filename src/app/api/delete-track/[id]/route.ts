@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { v2 as cloudinary } from 'cloudinary';
 
+export async function generateStaticParams() {
+  return [];
+}
+
 const adminClient = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

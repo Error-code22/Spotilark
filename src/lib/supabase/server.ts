@@ -24,10 +24,10 @@ export async function createClient() {
             // Handle the error or ignore it
           }
         },
-        async remove(name: string, options: CookieOptions) {
+        async remove(name: string, _options: CookieOptions) {
           try {
             const cookieStore = await cookies()
-            cookieStore.delete(name, options)
+            cookieStore.delete(name)
           } catch (error) {
             // Handle the error or ignore it
           }

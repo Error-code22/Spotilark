@@ -1,11 +1,12 @@
+// @ts-ignore — multer has no type declarations
 import multer from 'multer';
 import path from 'path';
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req: any, _file: any, cb: any) => {
     cb(null, 'uploads/');
   },
-  filename: (req, file, cb) => {
+  filename: (_req: any, file: any, cb: any) => {
     const ext = path.extname(file.originalname);
     cb(null, `${Date.now()}${ext}`);
   },

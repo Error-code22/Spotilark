@@ -63,7 +63,7 @@ export const RightPanel = () => {
 
   if (!currentTrack) {
     return (
-      <aside className="w-80 flex-shrink-0 bg-background p-4 flex flex-col items-center justify-center border-l">
+      <aside className="w-full h-full flex-shrink-0 bg-background p-4 flex flex-col items-center justify-center border-l">
         <div className="text-center text-muted-foreground">
           <Music2 className="h-16 w-16 mx-auto mb-4" />
           <p>Select a song to see details</p>
@@ -73,12 +73,12 @@ export const RightPanel = () => {
   }
 
   return (
-    <aside className="w-80 flex-shrink-0 bg-background p-4 flex flex-col gap-6 border-l">
+    <aside className="w-full h-full flex-shrink-0 bg-background p-4 flex flex-col gap-4 overflow-hidden">
       <Card className="shadow-lg border-none bg-card rounded-lg overflow-hidden">
         <CardContent className="p-0">
           <div className="relative h-48 w-full">
             <Image
-              src={currentTrack.cover || '/SL.png'}
+              src={currentTrack.cover || '/spotilark-without-text-white.png'}
               alt={currentTrack.album || 'Album Cover'}
               fill
               className="object-cover"
@@ -95,9 +95,9 @@ export const RightPanel = () => {
           </div>
         </CardContent>
       </Card>
-      <div className="flex-1 flex flex-col min-h-0 bg-card p-4 rounded-lg">
-        <h3 className="text-lg font-bold mb-2 px-2">Lyrics</h3>
-        <ScrollArea className="flex-1">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-card p-3 rounded-lg">
+        <h3 className="text-sm font-bold mb-1 px-2 shrink-0">Lyrics</h3>
+        <ScrollArea className="flex-1 min-h-0">
           <div ref={lyricsContainerRef} className="space-y-4 p-2">
             {currentTrack.lyrics && currentTrack.lyrics.length > 0 ? (
               currentTrack.lyrics.map((line, index) => (

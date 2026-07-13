@@ -11,7 +11,7 @@ export const QueueList = () => {
     <div className="bg-card p-2 rounded-lg border">
       <h3 className="p-2 font-semibold">Queue</h3>
       <ScrollArea className="h-48">
-        <div className="space-y-1 pr-2">
+        <div className="space-y-1 pr-2 pb-24">
           {trackQueue.map((track, index) => (
             <div
               key={track.id}

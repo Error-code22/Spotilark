@@ -115,26 +115,10 @@ export default function FluxEqualizer({ audioId = "spotilark-audio" }: { audioId
     setAudioReady(true);
 
     return () => {
-      try {
-        // Disconnect filters chain
-        Object.values(filters).forEach((f) => f.disconnect());
-
-        // Reconnect source directly to destination so music keeps playing
-        if (source && audioCtx) {
-          try {
-            source.disconnect();
-            source.connect(audioCtx.destination);
-          } catch { }
-        }
-
-        // We do NOT close the AudioContext anymore because we want to reuse it
-        // audioCtx.close(); 
-      } catch (e) {
-        console.error("Cleanup error", e);
-      }
-      audioCtxRef.current = null;
+      // Don't disconnect filters on unmount — keep EQ active across navigations.
+      // The AudioContext and filter chain persist as long as the audio element exists.
     };
-  }, [audioId]); // Re-run if enabled/bands change? No, better to use separate effects for params.
+  }, [audioId]);
 
 
 
@@ -162,7 +146,7 @@ export default function FluxEqualizer({ audioId = "spotilark-audio" }: { audioId
   const gainToPercent = (gain: number) => ((gain + 12) / 24) * 100;
 
   return (
-    <div className="w-full max-w-md mx-auto p-6 rounded-3xl bg-gradient-to-br from-card/90 to-card/50 border border-white/10 shadow-2xl backdrop-blur-xl">
+    <div className="w-[420px] p-6 rounded-3xl bg-gradient-to-br from-card/90 to-card/50 border border-white/10 shadow-2xl backdrop-blur-xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-light tracking-widest text-primary uppercase">Equalizer</h2>

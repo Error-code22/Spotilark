@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 
 import { v2 as cloudinary } from 'cloudinary';
 
+export const dynamic = 'force-static';
+
 // Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,

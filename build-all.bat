@@ -10,22 +10,13 @@ echo.
 set /p VERSION="Enter new version number (e.g., 0.1.1): "
 
 echo.
-echo [1/4] Updating configuration files...
-:: Update package.json
+echo [1/4] Updating package.json version...
 powershell -Command "(gc package.json) -replace '\"version\": \".*\"', '\"version\": \"%VERSION%\"' | Out-File -encoding ASCII package.json"
-:: Update tauri.conf.json
-powershell -Command "(gc src-tauri/tauri.conf.json) -replace '\"version\": \".*\"', '\"version\": \"%VERSION%\"' | Out-File -encoding ASCII src-tauri/tauri.conf.json"
-
-:: Temporary move API folder to avoid Next.js static export errors
-if exist "src\app\api" (
-    echo [!] Temporarily hiding API folder for static export...
-    ren "src\app\api" "_api_tmp"
-)
 
 echo.
 echo [2/4] Select build platform:
-echo  1. Desktop (Windows .exe)
-echo  2. Mobile (Android .apk)
+echo  1. Desktop (Windows .exe via Electron)
+echo  2. Mobile (Android .apk via Capacitor)
 echo  3. Both (Desktop + Mobile)
 set /p CHOICE="Enter choice (1-3): "
 
@@ -36,20 +27,15 @@ goto android_check
 
 :desktop
 echo.
-echo [3/4] Starting Desktop Build (Tauri)...
-echo To sign the update for the HappyMod-style updater, you need your PRIVATE KEY.
-set /p PRIVKEY="Paste your Private Key (or press Enter if already set in ENV): "
-if not "%PRIVKEY%"=="" set TAURI_PRIVATE_KEY=%PRIVKEY%
-
-echo Building Windows version...
-call npx tauri build
+echo [3/4] Starting Desktop Build (Electron)...
+call npm run electron:build:win
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [!] Desktop build failed! Check errors above.
     goto done
 )
 echo.
-echo Desktop build complete! Output in: src-tauri/target/release/bundle/msi/
+echo Desktop build complete! Output in: dist-electron\
 if "%CHOICE%"=="1" goto done
 
 :android_check
@@ -59,33 +45,44 @@ goto done
 
 :android
 echo.
-echo [4/4] Starting Android Build (Tauri)...
-echo Ensure your Android device/emulator is visible or SDK is ready.
-call npx tauri android build
+echo [4/4] Starting Android Build (Capacitor)...
+
+:: Build static export
+echo [a] Building web static export...
+set NEXT_PUBLIC_ENV=export
+call npm run build
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [!] Web build failed! Check errors above.
+    goto done
+)
+
+:: Sync to Android
+echo [b] Syncing to Android...
+call npx cap sync android
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [!] Capacitor sync failed! Check errors above.
+    goto done
+)
+
+:: Build APK
+echo [c] Building Android APK...
+set JAVA_HOME=D:\Android studio\jbr
+call C:\gradle-9.1.0\bin\gradle.bat assembleRelease -p android --no-daemon
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [!] Android build failed! Check errors above.
     goto done
 )
 echo.
-echo Android build complete! Output in: src-tauri/gen/android/app/build/outputs/apk/
+echo Android build complete! Output in: android\app\build\outputs\apk\
 goto done
 
 :done
-:: Restore API folder if it was moved
-if exist "src\app\_api_tmp" (
-    echo [!] Restoring API folder...
-    ren "src\app\_api_tmp" "api"
-)
-
 echo.
 echo ==========================================
-echo    BUILD PROCESS FINISHED SUCCESSFULLY
+echo    BUILD PROCESS FINISHED
 echo ==========================================
-echo.
-echo NEXT STEPS:
-echo 1. Go to your GitHub (spotilark-site) and create a New Release v%VERSION%.
-echo 2. Upload the .msi.zip and the .apk files.
-echo 3. Update the 'version' and 'signature' in your project's update.json.
 echo.
 pause

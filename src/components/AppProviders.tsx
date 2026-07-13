@@ -5,6 +5,7 @@ import { PlayerProvider } from '@/context/PlayerContext';
 import { Track } from '@/lib/data';
 import { createClient } from '@/lib/supabase/client';
 import { UploadProvider } from '@/context/UploadContext';
+import { DeviceProvider } from '@/context/DeviceContext';
 
 interface AppProvidersProps {
   children: ReactNode;
@@ -20,7 +21,6 @@ export default function AppProviders({ children }: AppProvidersProps) {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        setTracks([]);
         return;
       }
 
@@ -30,18 +30,11 @@ export default function AppProviders({ children }: AppProvidersProps) {
         .eq('user_id', user.id);
 
       if (error && (status === 401 || status === 403)) {
-        setTracks([]);
         return;
       }
 
       if (error) {
-        if (error.code === '42P01') {
-          setTracks([]);
-          return;
-        } else {
-          setTracks([]);
-          return;
-        }
+        return;
       }
 
       const mappedData = data?.map(track => ({
@@ -52,7 +45,7 @@ export default function AppProviders({ children }: AppProvidersProps) {
 
       setTracks(mappedData);
     } catch (error: any) {
-      setTracks([]);
+      // Offline or network error - keep existing tracks (local library still works)
     }
   }, []);
 
@@ -72,10 +65,12 @@ export default function AppProviders({ children }: AppProvidersProps) {
   }, [fetchTracks]);
 
   return (
-    <PlayerProvider tracks={tracks} refetch={fetchTracks}>
-      <UploadProvider>
-        {children}
-      </UploadProvider>
-    </PlayerProvider>
+    <DeviceProvider>
+      <PlayerProvider tracks={tracks} refetch={fetchTracks}>
+        <UploadProvider>
+          {children}
+        </UploadProvider>
+      </PlayerProvider>
+    </DeviceProvider>
   );
 }

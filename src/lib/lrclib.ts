@@ -84,7 +84,8 @@ export async function fetchLyricsFromLRCLIB(
         const response = await fetch(`${LRCLIB_API_URL}/get?${params.toString()}`);
         if (!response.ok) {
             if (response.status === 404) return null;
-            throw new Error(`LRCLIB API Error: ${response.status}`);
+            console.warn(`LRCLIB API Error: ${response.status} for ${title} by ${artist}`);
+            return null;
         }
 
         const data: LrcLibResponse = await response.json();

@@ -1,0 +1,136 @@
+Γû▓ Next.js 16.1.1 (Turbopack)
+- Environments: .env.local
+
+node.exe : ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: 
+https://nextjs.org/docs/messages/middleware-to-proxy
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ΓÜá The "middle...leware-to-proxy:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 48s
+  Skipping validation of types
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/60) ...
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+  Generating static pages using 7 workers (15/60) 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+  Generating static pages using 7 workers (30/60) 
+ --- Spotilark Device Engine V1.5.0 --- 
+  Generating static pages using 7 workers (45/60) 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+ --- Spotilark Device Engine V1.5.0 --- 
+Γ£ô Generating static pages using 7 workers (60/60) in 3.3s
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /admin
+Γö£ Γùï /albums
+Γö£ ╞Æ /api/account/delete
+Γö£ ╞Æ /api/add-to-playlist
+Γö£ ╞Æ /api/auth/[service]
+Γö£ ╞Æ /api/auth/google-drive/callback
+Γö£ ╞Æ /api/clear-tracks
+Γö£ ╞Æ /api/cloud/[service]/files
+Γö£ ╞Æ /api/cloud/[service]/stream/[fileId]
+Γö£ ╞Æ /api/delete-track/[id]
+Γö£ ╞Æ /api/download
+Γö£ ╞Æ /api/friends/add
+Γö£ ╞Æ /api/friends/code
+Γö£ ╞Æ /api/friends/list
+Γö£ ╞Æ /api/get-lyrics
+Γö£ ╞Æ /api/library/import
+Γö£ ╞Æ /api/profile/badges
+Γö£ ╞Æ /api/profile/mood-tags
+Γö£ ╞Æ /api/profile/record-play
+Γö£ ╞Æ /api/profile/update
+Γö£ ╞Æ /api/rename-track/[id]
+Γö£ ╞Æ /api/save-track-metadata
+Γö£ ╞Æ /api/search/remote
+Γö£ ╞Æ /api/storage/stream
+Γö£ ╞Æ /api/storage/upload
+Γö£ ╞Æ /api/stream/video
+Γö£ ╞Æ /api/stream/youtube
+Γö£ ╞Æ /api/supabase/keep-alive
+Γö£ ╞Æ /api/telegram
+Γö£ ╞Æ /api/upload
+Γö£ ╞Æ /api/upload-track
+Γö£ ╞Æ /api/video/search
+Γö£ ╞Æ /api/youtube/cookies
+Γö£ Γùï /artist
+Γö£ Γùï /folders
+Γö£ ΓùÅ /folders/[sourceName]
+Γöé Γö£ /folders/uploaded-music
+Γöé Γö£ /folders/local
+Γöé Γö£ /folders/cloud
+Γöé Γöö /folders/stream
+Γö£ Γùï /folders/add-cloud-service
+Γö£ Γùï /forgot-password
+Γö£ Γùï /login
+Γö£ Γùï /login-old
+Γö£ Γùï /lyrics
+Γö£ Γùï /messages
+Γö£ Γùï /offline
+Γö£ Γùï /playlist
+Γö£ Γùï /playlists
+Γö£ ΓùÅ /playlists/[id]
+Γöé Γö£ /playlists/default
+Γöé Γöö /playlists/playing
+Γö£ ΓùÅ /playlists/[id]/[playlistName]
+Γöé Γöö /playlists/default/default
+Γö£ Γùï /playlists/liked-songs
+Γö£ Γùï /privacy-policy
+Γö£ Γùï /profile
+Γö£ ΓùÅ /profile/[username]
+Γöé Γöö /profile/default
+Γö£ Γùï /profile/edit
+Γö£ Γùï /random
+Γö£ Γùï /search
+Γö£ Γùï /settings
+Γö£ Γùï /signup
+Γö£ Γùï /terms
+Γö£ Γùï /update-password
+Γö£ Γùï /upload
+Γöö Γùï /video
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+ΓùÅ  (SSG)      prerendered as static HTML (uses generateStaticParams)
+╞Æ  (Dynamic)  server-rendered on demand
+

@@ -1,29 +1,79 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { SpotilarkLayout } from "@/components/spotilark-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Folder, HardDrive, Cloud, Music, Play, ChevronLeft, Globe, ArrowRight, Monitor, Download } from "lucide-react";
+import Folder from 'lucide-react/icons/folder';
+import HardDrive from 'lucide-react/icons/hard-drive';
+import Cloud from 'lucide-react/icons/cloud';
+import Music from 'lucide-react/icons/music';
+import Play from 'lucide-react/icons/play';
+import ChevronLeft from 'lucide-react/icons/chevron-left';
+import ChevronRight from 'lucide-react/icons/chevron-right';
+import Globe from 'lucide-react/icons/globe';
+import ArrowRight from 'lucide-react/icons/arrow-right';
+import Monitor from 'lucide-react/icons/monitor';
+import Download from 'lucide-react/icons/download';
+import FolderArchive from 'lucide-react/icons/folder-archive';
+import Database from 'lucide-react/icons/database';
+import Trash2 from 'lucide-react/icons/trash-2';
+import Plus from 'lucide-react/icons/plus';
+import ListMusic from 'lucide-react/icons/list-music';
+import Music2 from 'lucide-react/icons/music-2';
+import Video from 'lucide-react/icons/video';
 import Link from "next/link";
 import { usePlayer } from '@/context/PlayerContext';
 import { Track } from '@/lib/data';
 import { cn } from '@/lib/utils';
+import { openDB, clearMusicCache } from '@/lib/cache-utils';
+import { scanNativeFolders } from '@/lib/file-scanner';
+import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
-type View = 'dashboard' | 'local' | 'cloud' | 'stream';
+type View = 'dashboard' | 'local' | 'cloud' | 'stream' | 'folder-detail';
+
+interface ScannedFolder {
+  name: string;
+  tracks: Track[];
+}
 
 export default function FoldersPage() {
   const [activeView, setActiveView] = useState<View>('dashboard');
   const internalStorageInputRef = useRef<HTMLInputElement>(null);
+  const songsInputRef = useRef<HTMLInputElement>(null);
+  const videosInputRef = useRef<HTMLInputElement>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
-  const { playTrack, localLibrary, addLocalTracks, cloudLibrary, unifiedLibrary } = usePlayer();
+  const { playTrack, localLibrary, addLocalTracks, cloudLibrary, unifiedLibrary, refetchTracks } = usePlayer();
+  const { toast } = useToast();
 
   const [isScanning, setIsScanning] = useState(false);
+  const [storageUsed, setStorageUsed] = useState(0);
+  const [storageTotal, setStorageTotal] = useState(0);
+  const [offlineCachedCount, setOfflineCachedCount] = useState(0);
+  const [cacheSize, setCacheSize] = useState(0);
+  const [isClearingCache, setIsClearingCache] = useState(false);
   const jsmediatagsRef = useRef<any>(null);
+  const [scannedFolders, setScannedFolders] = useState<ScannedFolder[]>([]);
+  const [isNative, setIsNative] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
-  // Derived libraries
   const streamLibrary = unifiedLibrary.filter(t => t.storage_type === 'stream');
+
+  // Group local tracks by album (folder name)
+  const folderGroups = useMemo(() => {
+    const groups: Record<string, Track[]> = {};
+    localLibrary.forEach(track => {
+      const folder = track.album || 'Unknown Folder';
+      if (!groups[folder]) groups[folder] = [];
+      groups[folder].push(track);
+    });
+    return groups;
+  }, [localLibrary]);
+
+  const folderNames = Object.keys(folderGroups).sort();
 
   useEffect(() => {
     import('jsmediatags').then(module => {
@@ -31,10 +81,72 @@ export default function FoldersPage() {
     }).catch(error => console.error("Failed to load jsmediatags:", error));
   }, []);
 
-  const handleInternalStorageSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+  useEffect(() => {
+    const fetchStorageInfo = async () => {
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          const estimate = await navigator.storage.estimate();
+          setStorageUsed(estimate.usage || 0);
+          setStorageTotal(estimate.quota || 0);
+        }
+      } catch (e) {
+        console.error('Failed to get storage info:', e);
+      }
+    };
+    fetchStorageInfo();
+  }, []);
 
+  useEffect(() => {
+    const fetchCacheInfo = async () => {
+      try {
+        const db = await openDB();
+        const transaction = db.transaction("tracks", "readonly");
+        const store = transaction.objectStore("tracks");
+
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          setOfflineCachedCount(countRequest.result);
+        };
+
+        let totalSize = 0;
+        const allRequest = store.getAll();
+        allRequest.onsuccess = () => {
+          const entries = allRequest.result;
+          entries.forEach((entry: any) => {
+            if (entry.blob) {
+              totalSize += entry.blob.size;
+            }
+          });
+          setCacheSize(totalSize);
+        };
+      } catch (e) {
+        console.error('Failed to get cache info:', e);
+      }
+    };
+    fetchCacheInfo();
+  }, []);
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    try {
+      await clearMusicCache();
+      setOfflineCachedCount(0);
+      setCacheSize(0);
+    } catch (e) {
+      console.error('Failed to clear cache:', e);
+    }
+    setIsClearingCache(false);
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const processFiles = async (files: FileList | File[], folderName?: string) => {
     setIsScanning(true);
     const scannedTracks: Track[] = [];
     const audioFiles = Array.from(files).filter(file => file.type.startsWith('audio/'));
@@ -44,8 +156,16 @@ export default function FoldersPage() {
       let metadata: any = {
         title: file.name.replace(/\.[^/.]+$/, ""),
         artist: 'Unknown Artist',
-        album: 'Unknown Album'
+        album: folderName || 'Unknown Folder'
       };
+
+      // Extract folder name from webkitRelativePath if available
+      if ((file as any).webkitRelativePath) {
+        const parts = (file as any).webkitRelativePath.split('/');
+        if (parts.length > 1) {
+          metadata.album = parts.slice(0, -1).join('/') || parts[0];
+        }
+      }
 
       if (jsmediatagsRef.current) {
         await new Promise<void>((resolve) => {
@@ -53,12 +173,9 @@ export default function FoldersPage() {
             onSuccess: (tag: any) => {
               metadata.title = tag.tags.title || metadata.title;
               metadata.artist = tag.tags.artist || metadata.artist;
-              metadata.album = tag.tags.album || metadata.album;
+              // Keep folder name as album, don't overwrite with tag album
               if (tag.tags.picture) {
-                const { data, format } = tag.tags.picture;
-                const byteArray = new Uint8Array(data);
-                const blob = new Blob([byteArray], { type: format });
-                metadata.cover = URL.createObjectURL(blob);
+                metadata.rawPicture = tag.tags.picture;
               }
               resolve();
             },
@@ -67,14 +184,48 @@ export default function FoldersPage() {
         });
       }
 
+      let trackDuration = 0;
+      try {
+        trackDuration = await new Promise<number>((resolve) => {
+          const audio = new Audio();
+          audio.preload = 'metadata';
+          audio.onloadedmetadata = () => {
+            resolve(audio.duration || 0);
+            audio.src = '';
+          };
+          audio.onerror = () => resolve(0);
+          audio.src = URL.createObjectURL(file);
+          setTimeout(() => resolve(0), 5000);
+        });
+      } catch {
+        trackDuration = 0;
+      }
+
+      let coverUrl = '/spotilark-without-text-white.png';
+      if (metadata.rawPicture) {
+        try {
+          const { data, format } = metadata.rawPicture;
+          const byteArray = new Uint8Array(data);
+          const blob = new Blob([byteArray], { type: format });
+          coverUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => resolve('/spotilark-without-text-white.png');
+            reader.readAsDataURL(blob);
+          });
+        } catch {
+          coverUrl = '/spotilark-without-text-white.png';
+        }
+      }
+
       const localTrack: Track = {
         id: `local-${fileId}`,
         title: metadata.title,
         artist: metadata.artist,
         album: metadata.album,
         source_url: URL.createObjectURL(file),
-        duration: 0,
-        cover: metadata.cover || '/SL.png',
+        duration: trackDuration,
+        cover: coverUrl,
         created_at: new Date().toISOString(),
         created_by: 'local-user',
         storage_type: 'local'
@@ -86,45 +237,461 @@ export default function FoldersPage() {
     setActiveView('local');
   };
 
+  const handleInternalStorageSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(files);
+    event.target.value = '';
+  };
+
+  const handleSongsSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    await processFiles(files, 'Imported Songs');
+    event.target.value = '';
+  };
+
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      const url = URL.createObjectURL(file);
+      video.onloadedmetadata = () => {
+        const dur = video.duration || 0;
+        URL.revokeObjectURL(url);
+        resolve(dur);
+      };
+      video.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(0);
+      };
+      video.src = url;
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve(0);
+      }, 3000);
+    });
+  };
+
+  const extractVideoCover = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadeddata = () => {
+        video.currentTime = Math.min(1, video.duration * 0.1);
+      };
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          const vw = video.videoWidth || 320;
+          const vh = video.videoHeight || 180;
+          const size = Math.min(vw, vh);
+          const x = (vw - size) / 2;
+          const y = (vh - size) / 2;
+          ctx.drawImage(video, x, y, size, size, 0, 0, 64, 64);
+          resolve(canvas.toDataURL("image/jpeg", 0.4));
+        } else {
+          resolve('/spotilark-without-text-white.png');
+        }
+      };
+      video.onerror = () => resolve('/spotilark-without-text-white.png');
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+        resolve('/spotilark-without-text-white.png');
+      }, 3000);
+    });
+  };
+
+  const handleVideosSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    const videoFiles = Array.from(files).filter(f => f.type.startsWith('video/'));
+    const tracks: Track[] = [];
+    for (const file of videoFiles) {
+      const cover = await extractVideoCover(file);
+      const duration = await getVideoDuration(file);
+      const videoUrl = URL.createObjectURL(file);
+      tracks.push({
+        id: `local-video-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        title: file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "),
+        artist: "Local Video",
+        album: "Imported Videos",
+        source_url: videoUrl,
+        duration: duration || null,
+        cover,
+        created_at: new Date().toISOString(),
+        created_by: "local-user",
+        storage_type: "local",
+        hasVideo: true,
+        videoUrl,
+      });
+    }
+    await addLocalTracks(tracks, videoFiles);
+    event.target.value = '';
+  };
+
+  const handleNativeScan = async () => {
+    setIsScanning(true);
+    try {
+      const results = await scanNativeFolders();
+      const allTracks: Track[] = [];
+      const folders: ScannedFolder[] = [];
+
+      for (const result of results) {
+        allTracks.push(...result.tracks);
+        folders.push({ name: result.folderName, tracks: result.tracks });
+      }
+
+      if (allTracks.length > 0) {
+        await addLocalTracks(allTracks);
+        setScannedFolders(folders);
+      }
+    } catch (error) {
+      console.error("Native scan failed:", error);
+    }
+    setIsScanning(false);
+    setActiveView('local');
+  };
+
+  const isElectron = typeof window !== 'undefined' && !!(window as any).electronAPI;
+
+  const handleElectronScan = async () => {
+    const api = (window as any).electronAPI;
+    if (!api) return;
+
+    const folderPath = await api.selectFolder();
+    if (!folderPath) return;
+
+    setIsScanning(true);
+    try {
+      const files: Array<{ path: string; name: string; size: number; modified: string }> = await api.scanFolder(folderPath);
+      if (files.length === 0) {
+        toast({ title: "No audio files found", description: "The selected folder contains no supported audio files.", variant: "destructive" });
+        setIsScanning(false);
+        return;
+      }
+
+      const scannedTracks: Track[] = files.map((file: any) => {
+        const title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+        const folderName = folderPath.split(/[\\/]/).pop() || 'Unknown Folder';
+        return {
+          id: `electron-${Buffer.from(file.path).toString('base64').replace(/[/+=]/g, '').slice(0, 20)}`,
+          title,
+          artist: 'Unknown Artist',
+          album: folderName,
+          source_url: `local-audio://${encodeURIComponent(file.path)}`,
+          duration: null,
+          cover: '/spotilark-without-text-white.png',
+          created_at: new Date().toISOString(),
+          created_by: 'electron-scan',
+          storage_type: 'local',
+          sourcePath: file.path,
+        } as Track;
+      });
+
+      await addLocalTracks(scannedTracks);
+      toast({ title: "Scan Complete", description: `Found ${scannedTracks.length} audio files in ${folderPath}` });
+
+      api.startFolderWatch(folderPath);
+      api.onFolderWatchEvent((event: any) => {
+        console.log(`[Folder Watch] ${event.type}: ${event.path}`);
+      });
+    } catch (error) {
+      console.error("Electron scan failed:", error);
+      toast({ title: "Scan Failed", description: "Failed to scan the selected folder.", variant: "destructive" });
+    }
+    setIsScanning(false);
+    setActiveView('local');
+  };
+
+  const convertFolderToPlaylist = (folderName: string, tracks: Track[]) => {
+    // Store as a playlist in localStorage
+    const playlists = JSON.parse(localStorage.getItem('spotilark-playlists') || '[]');
+    const newPlaylist = {
+      id: `playlist-${Date.now()}`,
+      name: folderName,
+      tracks: tracks.map(t => t.id),
+      created_at: new Date().toISOString(),
+    };
+    playlists.push(newPlaylist);
+    localStorage.setItem('spotilark-playlists', JSON.stringify(playlists));
+    toast({
+      title: "Playlist Created",
+      description: `"${folderName}" has been added to your playlists.`,
+    });
+  };
+
+  const StatBox = ({ label, value, suffix }: { label: string; value: number; suffix: string }) => (
+    <div className="text-center">
+      <p className="text-3xl font-black tracking-tighter">{value}</p>
+      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mt-1">{label} <span className="text-primary">{suffix}</span></p>
+    </div>
+  );
+
+  // Hidden inputs
+  const hiddenInputs = (
+    <>
+      <input
+        ref={internalStorageInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleInternalStorageSelection}
+        {...({ webkitdirectory: "" } as any)}
+        multiple
+        accept="audio/*"
+      />
+      <input
+        ref={songsInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleSongsSelection}
+        multiple
+        accept="audio/*"
+      />
+      <input
+        ref={videosInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleVideosSelection}
+        multiple
+        accept="video/*"
+      />
+    </>
+  );
+
+  if (activeView === 'folder-detail' && selectedFolder) {
+    const tracks = folderGroups[selectedFolder] || [];
+    return (
+      <SpotilarkLayout>
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto pb-24">
+          <div className="max-w-5xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={() => { setActiveView('local'); setSelectedFolder(null); }} className="rounded-full hover:bg-primary/10">
+                  <ChevronLeft className="h-6 w-6" />
+                </Button>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-black tracking-tight">{selectedFolder}</h2>
+                  <p className="text-sm text-muted-foreground">{tracks.length} tracks</p>
+                </div>
+              </div>
+              <div className="flex gap-2 ml-8 sm:ml-0">
+                <Button onClick={() => convertFolderToPlaylist(selectedFolder, tracks)} variant="outline" className="rounded-full font-bold gap-2">
+                  <ListMusic className="h-4 w-4" />
+                  Convert to Playlist
+                </Button>
+                <Button onClick={() => tracks.length > 0 && playTrack(tracks[0])} className="rounded-full font-bold gap-2">
+                  <Play className="h-4 w-4 fill-current" />
+                  Play All
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tracks.map((track) => (
+                <Card key={track.id} className="bg-card/40 border-none shadow-sm hover:bg-primary/5 transition-all group rounded-2xl overflow-hidden active:scale-[0.98] cursor-pointer" onClick={() => playTrack(track)}>
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-primary/10 border border-primary/5 group-hover:shadow-lg transition-all duration-300">
+                      <Image src={track.cover || '/spotilark-without-text-white.png'} alt={track.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" unoptimized />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Play className="h-6 w-6 text-white fill-white" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold truncate text-[15px]">{track.title}</p>
+                      <p className="text-xs text-muted-foreground truncate font-medium">{track.artist}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </SpotilarkLayout>
+    );
+  }
+
   const renderDashboard = () => (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-3xl font-black tracking-tight">Folders</h2>
-          <p className="text-muted-foreground font-medium">Browse files physically stored on this device</p>
+      <div className="mb-12 p-4 sm:p-8 rounded-[24px] sm:rounded-[40px] bg-card/40 border-none shadow-sm relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-primary/10 transition-colors" />
+
+        <div className="relative z-10">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-3 bg-primary/10 rounded-2xl">
+              <HardDrive className="text-primary h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter">Storage</h3>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest opacity-60">Device & Cache Overview</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-background/60 border-none shadow-sm rounded-2xl">
+              <CardContent className="p-5 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10">
+                    <HardDrive className="h-5 w-5 text-amber-500" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Internal Storage</span>
+                </div>
+                <div>
+                  <span className="text-2xl font-black tracking-tighter">{formatBytes(storageUsed)}</span>
+                  <span className="text-xs font-bold text-muted-foreground ml-1">/ {formatBytes(storageTotal)}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-background/60 border-none shadow-sm rounded-2xl">
+              <CardContent className="p-5 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-blue-500/10">
+                    <Cloud className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Cloud Tracks</span>
+                </div>
+                <div>
+                  <span className="text-2xl font-black tracking-tighter">{cloudLibrary.length}</span>
+                  <span className="text-xs font-bold text-muted-foreground ml-1">tracks</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-background/60 border-none shadow-sm rounded-2xl">
+              <CardContent className="p-5 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-green-500/10">
+                    <FolderArchive className="h-5 w-5 text-green-500" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Local Files</span>
+                </div>
+                <div>
+                  <span className="text-2xl font-black tracking-tighter">{localLibrary.length}</span>
+                  <span className="text-xs font-bold text-muted-foreground ml-1">tracks</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-background/60 border-none shadow-sm rounded-2xl">
+              <CardContent className="p-5 flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-purple-500/10">
+                    <Database className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Music Cache</span>
+                </div>
+                <div>
+                  <span className="text-2xl font-black tracking-tighter">{offlineCachedCount}</span>
+                  <span className="text-xs font-bold text-muted-foreground ml-1">cached</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <SourceFolder
-          icon={Monitor}
-          title="Internal Storage"
-          description={`${localLibrary.length} tracks found on this device`}
-          color="amber"
+      {/* Action Buttons */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+        {isElectron ? (
+          <DashboardCard
+            icon={<Folder className="h-6 w-6" />}
+            title="Scan Folder"
+            description="Scan a folder on your PC"
+            count={0}
+            color="amber"
+            onClick={handleElectronScan}
+          />
+        ) : (
+          <DashboardCard
+            icon={<Folder className="h-6 w-6" />}
+            title="Import Folder"
+            description="Add a folder of songs"
+            count={0}
+            color="amber"
+            onClick={() => internalStorageInputRef.current?.click()}
+          />
+        )}
+        <DashboardCard
+          icon={<Music className="h-6 w-6" />}
+          title="Add Songs/Videos"
+          description="Add individual tracks or videos"
+          count={0}
+          color="blue"
+          onClick={() => setShowAddDialog(true)}
+        />
+        <DashboardCard
+          icon={<Monitor className="h-6 w-6" />}
+          title="Local Library"
+          description={`${folderNames.length} folders`}
           count={localLibrary.length}
+          color="green"
           onClick={() => setActiveView('local')}
         />
-
-        <SourceFolder
-          icon={Cloud}
+        <DashboardCard
+          icon={<Cloud className="h-6 w-6" />}
           title="Cloud Library"
-          description={`${cloudLibrary.length} tracks synced to account`}
-          color="blue"
+          description="Imported from YouTube"
           count={cloudLibrary.length}
-          onClick={() => setActiveView('cloud')}
-        />
-
-        <SourceFolder
-          icon={Globe}
-          title="Cache & Temp"
-          description={`${streamLibrary.length} temporary tracks`}
           color="emerald"
-          count={streamLibrary.length}
-          onClick={() => setActiveView('stream')}
+          onClick={() => setActiveView('cloud')}
         />
       </div>
 
-      <div className="mt-12 p-8 rounded-[40px] bg-card/40 border-none shadow-sm relative overflow-hidden group">
+      {/* Folder Groups */}
+      {folderNames.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-black tracking-tight">Your Folders</h3>
+            <span className="text-sm text-muted-foreground">{folderNames.length} folders</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {folderNames.map((name) => {
+              const tracks = folderGroups[name];
+              const cover = tracks[0]?.cover || '/spotilark-without-text-white.png';
+              return (
+                <Card
+                  key={name}
+                  className="bg-card/40 border-none shadow-sm hover:bg-primary/5 transition-all group rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98]"
+                  onClick={() => { setSelectedFolder(name); setActiveView('folder-detail'); }}
+                >
+                  <div className="relative h-32 w-full">
+                    <Image src={cover} alt={name} fill className="object-cover" unoptimized />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <p className="text-white font-bold truncate">{name}</p>
+                      <p className="text-white/70 text-xs">{tracks.length} tracks</p>
+                    </div>
+                  </div>
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={(e) => { e.stopPropagation(); playTrack(tracks[0]); }}>
+                        <Play className="h-4 w-4 fill-primary text-primary" />
+                      </Button>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-xs gap-1 text-muted-foreground"
+                      onClick={(e) => { e.stopPropagation(); convertFolderToPlaylist(name, tracks); }}
+                    >
+                      <ListMusic className="h-3 w-3" />
+                      Playlist
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Cloud Storage Health */}
+      <div className="p-4 sm:p-8 rounded-[24px] sm:rounded-[40px] bg-card/40 border-none shadow-sm relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32 group-hover:bg-primary/10 transition-colors" />
 
         <div className="flex flex-col gap-8 relative z-10">
@@ -175,12 +742,7 @@ export default function FoldersPage() {
     <div className="animate-in fade-in slide-in-from-left-4 duration-500">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setActiveView('dashboard')}
-            className="rounded-full hover:bg-primary/10"
-          >
+          <Button variant="ghost" size="icon" onClick={() => setActiveView('dashboard')} className="rounded-full hover:bg-primary/10">
             <ChevronLeft className="h-6 w-6" />
           </Button>
           <div>
@@ -188,28 +750,31 @@ export default function FoldersPage() {
               <h2 className="text-3xl font-black tracking-tight">{title}</h2>
               <span className="px-3 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">{tracks.length}</span>
             </div>
-            <p className="text-sm text-muted-foreground flex items-center gap-2">
-              Folders <ChevronLeft className="h-3 w-3 rotate-180" /> {title}
-            </p>
           </div>
         </div>
 
         <div className="flex gap-2">
           {type === 'local' && (
-            <Button
-              onClick={() => internalStorageInputRef.current?.click()}
-              className="rounded-full font-bold gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Scan Folders
-            </Button>
+            <>
+              {isElectron ? (
+                <Button onClick={handleElectronScan} variant="outline" className="rounded-full font-bold gap-2">
+                  <Folder className="h-4 w-4" />
+                  Scan Folder
+                </Button>
+              ) : (
+                <Button onClick={() => internalStorageInputRef.current?.click()} variant="outline" className="rounded-full font-bold gap-2">
+                  <Folder className="h-4 w-4" />
+                  Add Folder
+                </Button>
+              )}
+              <Button onClick={() => setShowAddDialog(true)} className="rounded-full font-bold gap-2">
+                <Plus className="h-4 w-4" />
+                Add Songs/Videos
+              </Button>
+            </>
           )}
           {tracks.length > 0 && (
-            <Button
-              onClick={() => playTrack(tracks[0])}
-              variant="outline"
-              className="rounded-full font-bold gap-2 border-primary/20"
-            >
+            <Button onClick={() => playTrack(tracks[0])} variant="outline" className="rounded-full font-bold gap-2 border-primary/20">
               <Play className="h-4 w-4 fill-primary text-primary" />
               Play All
             </Button>
@@ -220,17 +785,11 @@ export default function FoldersPage() {
       {tracks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {tracks.map((track) => (
-            <Card key={track.id} className="bg-card/40 border-none shadow-sm hover:bg-primary/5 transition-all group rounded-2xl overflow-hidden active:scale-[0.98]">
+            <Card key={track.id} className="bg-card/40 border-none shadow-sm hover:bg-primary/5 transition-all group rounded-2xl overflow-hidden active:scale-[0.98] cursor-pointer" onClick={() => playTrack(track)}>
               <CardContent className="p-4 flex items-center gap-4">
                 <div className="relative w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-primary/10 border border-primary/5 group-hover:shadow-lg transition-all duration-300">
-                  <Image
-                    src={track.cover || '/SL.png'}
-                    alt={track.title}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    unoptimized
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer" onClick={() => playTrack(track)}>
+                  <Image src={track.cover || '/spotilark-without-text-white.png'} alt={track.title} fill className="object-cover group-hover:scale-110 transition-transform duration-500" unoptimized />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                     <Play className="h-6 w-6 text-white fill-white" />
                   </div>
                 </div>
@@ -238,14 +797,6 @@ export default function FoldersPage() {
                   <p className="font-bold truncate text-[15px]">{track.title}</p>
                   <p className="text-xs text-muted-foreground truncate font-medium">{track.artist}</p>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => playTrack(track)}
-                  className="rounded-full mt-auto mb-auto md:flex hidden opacity-0 group-hover:opacity-100"
-                >
-                  <ArrowRight className="h-4 w-4 text-primary" />
-                </Button>
               </CardContent>
             </Card>
           ))}
@@ -259,20 +810,20 @@ export default function FoldersPage() {
           </div>
           <p className="font-black text-xl text-foreground/80">{emptyMsg}</p>
           {type === 'local' && (
-            <Button
-              onClick={() => internalStorageInputRef.current?.click()}
-              className="rounded-full px-8 font-bold"
-            >
-              Select Local Folder
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={() => internalStorageInputRef.current?.click()} className="rounded-full px-6 font-bold gap-2">
+                <Folder className="h-4 w-4" />
+                Import Folder
+              </Button>
+              <Button onClick={() => setShowAddDialog(true)} variant="outline" className="rounded-full px-6 font-bold gap-2">
+                <Plus className="h-4 w-4" />
+                Add Songs/Videos
+              </Button>
+            </div>
           )}
           {type === 'cloud' && (
             <Link href="/upload">
-              <Button
-                className="rounded-full px-8 font-bold"
-              >
-                Go to Upload
-              </Button>
+              <Button className="rounded-full px-8 font-bold">Go to Upload</Button>
             </Link>
           )}
         </div>
@@ -280,70 +831,74 @@ export default function FoldersPage() {
     </div>
   );
 
-  return (
-    <SpotilarkLayout>
-      <div className="flex-1 p-6 md:p-12 overflow-y-auto pb-48 scrollbar-hide">
-        <input
-          type="file"
-          {...({ webkitdirectory: "true", directory: "true" } as any)}
-          multiple
-          ref={internalStorageInputRef}
-          onChange={handleInternalStorageSelection}
-          className="hidden"
-        />
-
-        <div className="max-w-6xl mx-auto">
-          {activeView === 'dashboard' && renderDashboard()}
-          {activeView === 'local' && renderFileView('local', 'Internal Storage', localLibrary, 'No local files scanned yet.', Monitor)}
-          {activeView === 'cloud' && renderFileView('cloud', 'Cloud Library', cloudLibrary, 'No cloud uploads found.', Cloud)}
-          {activeView === 'stream' && renderFileView('stream', 'Cache & Temp', streamLibrary, 'No cached tracks found.', Globe)}
-        </div>
-      </div>
-    </SpotilarkLayout>
-  );
-}
-
-function SourceFolder({ icon: Icon, title, description, color, count, onClick }: any) {
-  const colors = {
-    amber: "bg-amber-500/10 text-amber-500",
-    blue: "bg-blue-500/10 text-blue-500",
-    emerald: "bg-emerald-500/10 text-emerald-500"
-  };
-
-  return (
+  const DashboardCard = ({ icon, title, description, count, color, onClick }: {
+    icon: React.ReactNode; title: string; description: string; count: number; color: string; onClick: () => void;
+  }) => (
     <Card
+      className="bg-card/40 border-none shadow-sm hover:bg-primary/5 transition-all cursor-pointer active:scale-[0.98] rounded-2xl"
       onClick={onClick}
-      className="group relative overflow-hidden bg-card/40 border-none shadow-sm hover:shadow-2xl hover:-translate-y-2 hover:bg-primary/5 transition-all duration-500 cursor-pointer rounded-[40px] active:scale-[0.98]"
     >
-      <CardContent className="p-6 md:p-8 flex flex-col gap-6 md:gap-8 h-full">
-        <div className="flex justify-between items-start">
-          <div className={cn("p-4 md:p-5 rounded-3xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6", colors[color as keyof typeof colors])}>
-            <Icon className="h-8 w-8 md:h-10 md:w-10" />
+      <CardContent className="p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <div className={`p-2.5 rounded-xl bg-${color}-500/10`}>
+            <div className={`text-${color}-500`}>{icon}</div>
           </div>
-          <div className="bg-background/80 backdrop-blur-md border border-border/50 px-3 py-1 md:px-4 md:py-1.5 rounded-full shadow-sm">
-            <span className="text-[10px] md:text-xs font-black tracking-widest">{count} FILES</span>
-          </div>
+          {count > 0 && <span className="text-xl font-black">{count}</span>}
         </div>
         <div>
-          <h3 className="text-xl md:text-2xl font-black mb-1 group-hover:text-primary transition-colors">{title}</h3>
-          <p className="text-sm font-medium text-muted-foreground opacity-80 line-clamp-2 md:line-clamp-none">{description}</p>
-        </div>
-        <div className="mt-auto pt-4 flex items-center text-primary font-bold text-sm gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-10px] group-hover:translate-x-0">
-          Open Folder <ArrowRight className="h-4 w-4" />
+          <p className="font-bold">{title}</p>
+          <p className="text-xs text-muted-foreground">{description}</p>
         </div>
       </CardContent>
     </Card>
   );
-}
 
-function StatBox({ label, value, suffix }: any) {
   return (
-    <div className="flex flex-col">
-      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">{label}</span>
-      <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-black tracking-tighter text-foreground decoration-primary/20 underline underline-offset-8">{value}</span>
-        <span className="text-xs font-bold text-muted-foreground">{suffix}</span>
+    <SpotilarkLayout>
+      <div className="flex-1 p-4 md:p-6 overflow-y-auto pb-24">
+        <div className="max-w-5xl mx-auto">
+          {hiddenInputs}
+          {activeView === 'dashboard' && renderDashboard()}
+          {activeView === 'local' && renderFileView('local', 'Local Library', localLibrary, 'No local files yet.', Monitor)}
+          {activeView === 'cloud' && renderFileView('cloud', 'Cloud Library', cloudLibrary, 'No cloud tracks imported.', Cloud)}
+          {activeView === 'stream' && renderFileView('stream', 'Stream Library', streamLibrary, 'No streaming tracks.', Globe)}
+        </div>
       </div>
-    </div>
+
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Add to Library</DialogTitle>
+            <DialogDescription>What would you like to add?</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-4">
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 rounded-2xl"
+              onClick={() => {
+                songsInputRef.current?.click();
+                setShowAddDialog(false);
+              }}
+            >
+              <Music className="h-8 w-8 text-primary" />
+              <span className="font-bold">Songs</span>
+              <span className="text-xs text-muted-foreground">MP3, FLAC, WAV...</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex-col gap-2 rounded-2xl"
+              onClick={() => {
+                videosInputRef.current?.click();
+                setShowAddDialog(false);
+              }}
+            >
+              <Video className="h-8 w-8 text-primary" />
+              <span className="font-bold">Videos</span>
+              <span className="text-xs text-muted-foreground">MP4, WebM, MOV...</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </SpotilarkLayout>
   );
 }

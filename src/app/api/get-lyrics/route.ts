@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 
-export const dynamic = 'force-dynamic'; // Ensure dynamic rendering for API route
+export const dynamic = 'force-static';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

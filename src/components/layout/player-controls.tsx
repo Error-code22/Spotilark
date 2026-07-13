@@ -2,9 +2,11 @@
 
 import Image from "next/image";
 import { usePlayer } from "@/context/PlayerContext";
+import { useDevices } from "@/context/DeviceContext";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { formatTime, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import WaveformProgress from "@/components/WaveformProgress";
 import {
   Pause,
   Play,
@@ -20,7 +22,8 @@ import {
   Heart,
   Shuffle,
   Repeat,
-  Repeat1
+  Repeat1,
+  SlidersHorizontal
 } from "lucide-react";
 import { MarqueeText } from "@/components/ui/marquee-text";
 import {
@@ -29,9 +32,10 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UndoDotIcon } from "./UndoDotIcon";
 import { RedoDotIcon } from "./RedoDotIcon";
+import Equalizer from "@/components/Equalizer";
 
 
 export const PlayerControls = () => {
@@ -163,7 +167,7 @@ const MobilePlayer = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-[calc(92px+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1.5 group select-none overflow-hidden">
+    <div className="fixed bottom-0 left-0 right-0 h-[72px] bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1.5 group select-none">
       {/* TOP ROW: Info + Buttons */}
       <div className="flex items-center justify-between w-full h-16">
         {/* LEFT: Track Info Area (Draggable & Clickable) */}
@@ -192,9 +196,9 @@ const MobilePlayer = ({
             >
               {currentTrack ? (
                 <>
-                  <div className="relative h-14 w-14 rounded-lg overflow-hidden flex-shrink-0 shadow-2xl pointer-events-none">
+                  <div className="relative h-11 w-11 rounded-xl overflow-hidden flex-shrink-0 shadow-2xl pointer-events-none">
                     <Image
-                      src={currentTrack.cover || '/SL.png'}
+                      src={currentTrack.cover || '/spotilark-without-text-white.png'}
                       alt={currentTrack.album || 'Album Cover'}
                       fill
                       className="object-cover"
@@ -213,7 +217,7 @@ const MobilePlayer = ({
                 </>
               ) : (
                 <div className="flex items-center gap-3 opacity-50">
-                  <div className="h-14 w-14 bg-muted rounded-lg animate-pulse" />
+                  <div className="h-11 w-11 bg-muted rounded-xl animate-pulse" />
                   <div className="space-y-1.5">
                     <div className="h-4 w-24 bg-muted rounded animate-pulse" />
                     <div className="h-3 w-16 bg-muted rounded animate-pulse" />
@@ -226,11 +230,6 @@ const MobilePlayer = ({
 
         {/* RIGHT: Compact Controls */}
         <div className="flex items-center gap-1 ml-2 z-10" onClick={(e) => e.stopPropagation()}>
-          <DevicesPopover>
-            <Button variant="ghost" size="icon" className="text-muted-foreground/50 hover:text-foreground h-10 w-10 md:hidden active:scale-90 transition-all" title="Devices">
-              <Laptop2 className="h-5 w-5" />
-            </Button>
-          </DevicesPopover>
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-11 w-11 active:scale-90 transition-all" onClick={playPrev} disabled={!currentTrack}>
             <SkipBack className="h-6 w-6 fill-current" />
           </Button>
@@ -245,7 +244,7 @@ const MobilePlayer = ({
 
       {/* BOTTOM ROW: The specific progress line starting after the image */}
       <div className="flex items-center w-full px-1 pb-2.5">
-        <div className="w-14 flex-shrink-0" />
+        <div className="w-11 flex-shrink-0" />
         <div className="w-4 flex-shrink-0" />
         <div className="flex-1 h-1.5 bg-foreground/5 rounded-full overflow-hidden">
           <div
@@ -264,7 +263,22 @@ const DesktopPlayer = ({
   playNext, playPrev, currentTime, duration, handleSeek, seekBy,
   VolumeIcon, volume, handleVolumeChange, isLyricsViewOpen, toggleLyricsView, setIsVolumeHovered,
   isShuffled, toggleShuffle, repeatMode, toggleRepeat, isTrackLiked, toggleLikeTrack
-}: any) => (
+}: any) => {
+  const [isEqOpen, setIsEqOpen] = useState(false);
+  const eqRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isEqOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (eqRef.current && !eqRef.current.contains(e.target as Node)) {
+        setIsEqOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [isEqOpen]);
+
+  return (
   <div className="fixed bottom-0 left-0 right-0 h-[88px] bg-background/90 backdrop-blur-xl border-t border-border z-40 px-4 flex items-center justify-between group select-none">
     {/* LEFT: Track Info (Clickable) */}
     <div className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer" onClick={currentTrack ? toggleNowPlaying : undefined}>
@@ -272,7 +286,7 @@ const DesktopPlayer = ({
         <>
           <div className="relative h-14 w-14 rounded-md overflow-hidden flex-shrink-0 group/cover shadow-lg">
             <Image
-              src={currentTrack.cover || '/SL.png'}
+              src={currentTrack.cover || '/spotilark-without-text-white.png'}
               alt={currentTrack.album || 'Album Cover'}
               fill
               className="object-cover transition-transform duration-500 group-hover/cover:scale-110"
@@ -356,17 +370,15 @@ const DesktopPlayer = ({
         </Button>
       </div>
 
-      <div className="flex items-center gap-2 w-full group/seek">
-        <span className="text-[10px] text-muted-foreground font-mono tabular-nums w-8 text-right underline decoration-foreground/0 group-hover/seek:decoration-foreground/20 transition-all">
-          {formatTime(currentTime)}
-        </span>
-        <div className="relative flex-1 h-3 flex items-center">
-          <Slider value={[currentTime]} max={duration || 100} onValueChange={(val) => handleSeek(val[0])} className="w-full cursor-pointer" />
-        </div>
-        <span className="text-[10px] text-muted-foreground font-mono tabular-nums w-8 text-left underline decoration-foreground/0 group-hover/seek:decoration-foreground/20 transition-all">
-          {formatTime(duration)}
-        </span>
-      </div>
+      <WaveformProgress
+        currentTime={currentTime}
+        duration={duration}
+        onSeek={handleSeek}
+        className="w-full"
+        trackUrl={currentTrack?.source_url}
+        trackId={currentTrack?.id}
+        isLocal={currentTrack?.storage_type === 'local'}
+      />
     </div>
 
     {/* RIGHT: Tools & Volume */}
@@ -374,6 +386,14 @@ const DesktopPlayer = ({
       <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground transition-colors h-8 w-8" title="Now Playing" onClick={(e) => { e.stopPropagation(); toggleNowPlaying(); }}>
         <BarChart2 className="h-4 w-4" />
       </Button>
+      <div className="relative" ref={eqRef}>
+        <Button variant="ghost" size="icon" className={cn("text-muted-foreground hover:text-foreground transition-colors h-8 w-8", isEqOpen && "text-primary")} title="Equalizer" onClick={(e) => { e.stopPropagation(); setIsEqOpen(!isEqOpen); }}>
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+        <div className={cn("absolute bottom-full right-0 mb-2 z-[70] transition-opacity", isEqOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")} onClick={(e) => e.stopPropagation()}>
+          <Equalizer />
+        </div>
+      </div>
       <Button variant="ghost" size="icon" className={cn("text-muted-foreground hover:text-foreground transition-colors h-8 w-8", isLyricsViewOpen && "text-primary")} onClick={(e) => { e.stopPropagation(); toggleLyricsView(); }} title="Lyrics">
         <Mic2 className="h-4 w-4" />
       </Button>
@@ -397,40 +417,78 @@ const DesktopPlayer = ({
       </Popover>
     </div>
   </div >
-);
+  );
+};
 
 const DevicesPopover = ({ children }: { children: React.ReactNode }) => {
+  const { devices, currentDevice, activePlayerDevice, transferPlayback, setIsDevicesMenuOpen } = useDevices();
+
   return (
-    <Popover>
+    <Popover onOpenChange={setIsDevicesMenuOpen}>
       <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
         {children}
       </PopoverTrigger>
-      <PopoverContent side="top" align="center" className="w-[280px] p-4 bg-card border border-border rounded-xl mb-2 shadow-2xl">
+      <PopoverContent side="top" align="center" className="w-[300px] p-4 bg-card/80 backdrop-blur-2xl border border-white/10 rounded-2xl mb-2 shadow-2xl z-[60]">
         <div className="space-y-4">
-          <div className="flex items-center gap-3 border-b border-border pb-3">
+          <div className="flex items-center gap-3 border-b border-white/10 pb-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <Laptop2 className="h-5 w-5 text-primary" />
             </div>
             <div>
               <p className="font-bold text-sm">Current Device</p>
-              <p className="text-xs text-muted-foreground">Local Playback</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold text-[10px]">
+                {activePlayerDevice?.id === currentDevice?.id ? "Local Playback" : `Controlled by ${activePlayerDevice?.name}`}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2">Available Devices</p>
-            <div className="p-3 bg-muted/30 rounded-lg border border-border/50 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                <p className="text-sm font-medium">This Device</p>
-              </div>
-              <p className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">ACTIVE</p>
+            <div className="max-h-[250px] overflow-y-auto pr-1 space-y-2 scrollbar-hide">
+              {devices.map((device) => (
+                <div
+                  key={device.id}
+                  onClick={() => device.id !== currentDevice?.id && transferPlayback(device.id)}
+                  className={cn(
+                    "p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between group",
+                    device.id === currentDevice?.id
+                      ? "bg-primary/10 border-primary/20"
+                      : "bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "h-2 w-2 rounded-full",
+                      device.is_active ? "bg-primary animate-pulse" : "bg-muted-foreground/30"
+                    )} />
+                    <div>
+                      <p className="text-xs font-bold truncate max-w-[140px]">{device.name}</p>
+                      <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter">
+                        {device.is_active ? "Active" : "Sleep Mode"}
+                      </p>
+                    </div>
+                  </div>
+                  {device.id === currentDevice?.id ? (
+                    <p className="text-[9px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">THIS</p>
+                  ) : device.is_active && (
+                    <p className="text-[9px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">PLAYING</p>
+                  )}
+                </div>
+              ))}
+
+              {devices.length === 0 && (
+                <div className="py-8 flex flex-col items-center justify-center text-center gap-2 opacity-50">
+                  <BarChart2 className="h-5 w-5 animate-pulse" />
+                  <p className="text-[11px] font-bold uppercase tracking-tighter">Looking for devices...</p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="p-3 bg-accent/50 rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-center gap-2">
-            <BarChart2 className="h-5 w-5 text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground font-medium">Remote Control Coming Soon</p>
+          <div className="pt-2 border-t border-white/5">
+            <p className="text-[9px] text-center text-muted-foreground/30 uppercase font-black tracking-[0.2em]">
+              Remote Sync Engine v1.4
+            </p>
           </div>
         </div>
       </PopoverContent>

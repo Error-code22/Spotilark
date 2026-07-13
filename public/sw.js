@@ -52,6 +52,11 @@ self.addEventListener('fetch', (event) => {
     // Skip chrome-extension and other protocols
     if (!url.protocol.startsWith('http')) return;
 
+    // Skip stream/download API routes entirely — never cache these
+    if (url.pathname.startsWith('/api/stream/') || url.pathname.startsWith('/api/download')) {
+        return;
+    }
+
     // Handle API requests (network-first)
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(networkFirst(request));

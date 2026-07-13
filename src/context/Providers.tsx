@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import AppProviders from '@/components/AppProviders';
 import { ThemeProvider } from '@/context/ThemeContext';
+import '@/lib/suppress-errors';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (

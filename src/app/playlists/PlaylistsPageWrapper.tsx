@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@/hooks/useUser';
 import { usePlayer } from '@/context/PlayerContext';
 import { SpotilarkLayout } from '@/components/spotilark-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Heart } from 'lucide-react';
+import { Heart, Clock, TrendingUp, Music, ListMusic, History } from 'lucide-react';
 import { CreatePlaylistDialog } from '@/components/create-playlist-dialog';
 import { EditPlaylistDialog } from '@/components/edit-playlist-dialog';
 import Image from 'next/image';
@@ -35,7 +35,7 @@ export default function PlaylistsPageWrapper() {
   const [error, setError] = useState<string | null>(null);
 
   const { user, isLoading: userLoading } = useUser();
-  const { likedTrackIds } = usePlayer();
+  const { likedTrackIds, recentlyPlayed, playCounts, unifiedLibrary } = usePlayer();
 
   const fetchPlaylistsData = async () => {
     try {
@@ -151,6 +151,42 @@ export default function PlaylistsPageWrapper() {
                   <p className="text-xs text-muted-foreground">
                     Your favorite tracks
                   </p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/playlists/recently-played">
+              <Card className="hover:bg-accent transition-colors h-full flex flex-col justify-between">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Recently Played</CardTitle>
+                  <History className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{recentlyPlayed.length} songs</div>
+                  <p className="text-xs text-muted-foreground">Your listening history</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/playlists/most-played">
+              <Card className="hover:bg-accent transition-colors h-full flex flex-col justify-between">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Most Played</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{Object.keys(playCounts).length} songs</div>
+                  <p className="text-xs text-muted-foreground">Your top tracks</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link href="/playlists/never-played">
+              <Card className="hover:bg-accent transition-colors h-full flex flex-col justify-between">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Never Played</CardTitle>
+                  <Music className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{unifiedLibrary.filter(t => !playCounts[t.id]).length} songs</div>
+                  <p className="text-xs text-muted-foreground">Discover unplayed tracks</p>
                 </CardContent>
               </Card>
             </Link>

@@ -39,8 +39,17 @@ next-env.d.ts
 
 .genkit/*
 .env*
+!.env.production.example
 
 # firebase
 firebase-debug.log
 firestore-debug.log
 *-player-script.js
+
+# Capacitor/Android
+android/
+.gradle/
+build/
+
+# Electron
+dist-electron/

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { createClient } from '@/lib/supabase/server'; // Import Supabase server client
 
+export const dynamic = 'force-static';
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google-drive/callback';

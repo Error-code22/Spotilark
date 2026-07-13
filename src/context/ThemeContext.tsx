@@ -13,6 +13,8 @@ interface ThemeContextType {
   setLightTheme: (theme: LightTheme) => void;
   darkTheme: DarkTheme;
   setDarkTheme: (theme: DarkTheme) => void;
+  wallpaper: string | null;
+  setWallpaper: (url: string | null) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>('light');
   const [lightTheme, setLightThemeState] = useState<LightTheme>('theme-light-classic-white');
   const [darkTheme, setDarkThemeState] = useState<DarkTheme>('theme-dark-midnight-blue');
+  const [wallpaper, setWallpaperState] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const supabase = createClient();
@@ -40,8 +43,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const saveThemeSettings = useCallback(async (settings: Partial<ThemeSettings>) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // In a real implementation, you would store this in your user profile table
-      // For now, we'll just use localStorage
       localStorage.setItem('user-theme-settings', JSON.stringify({
         mode: theme,
         lightTheme: lightTheme,
@@ -65,13 +66,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           setLightThemeState(settings.lightTheme);
           setDarkThemeState(settings.darkTheme);
         } catch (e) {
-          // Fallback to individual theme settings if user settings are corrupted
           if (storedTheme) setThemeState(storedTheme);
           if (storedLightTheme) setLightThemeState(storedLightTheme);
           if (storedDarkTheme) setDarkThemeState(storedDarkTheme);
         }
       } else {
-        // Fallback to individual theme settings
         if (storedTheme) setThemeState(storedTheme);
         if (storedLightTheme) setLightThemeState(storedLightTheme);
         if (storedDarkTheme) setDarkThemeState(storedDarkTheme);
@@ -79,6 +78,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     };
 
     applyStoredThemes();
+    const storedWallpaper = localStorage.getItem('spotilark-wallpaper');
+    if (storedWallpaper) setWallpaperState(storedWallpaper);
     setIsInitialLoad(false);
   }, []);
 
@@ -87,7 +88,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
     const body = window.document.body;
     
-    // Remove existing theme classes
     body.classList.remove('light', 'dark');
     body.classList.forEach(className => {
       if (className.startsWith('theme-')) {
@@ -95,22 +95,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       }
     });
 
-    // Apply theme class
     body.classList.add(theme);
 
-    // Apply specific theme variant
     if (theme === 'light') {
       body.classList.add(lightTheme);
     } else {
       body.classList.add(darkTheme);
     }
 
-    // Update localStorage
     localStorage.setItem('theme-mode', theme);
     localStorage.setItem('theme-light', lightTheme);
     localStorage.setItem('theme-dark', darkTheme);
 
-    // Save to user profile if logged in
     saveThemeSettings({
       mode: theme,
       lightTheme: lightTheme,
@@ -130,6 +126,15 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setDarkThemeState(newTheme);
   };
 
+  const setWallpaper = (url: string | null) => {
+    setWallpaperState(url);
+    if (url) {
+      localStorage.setItem('spotilark-wallpaper', url);
+    } else {
+      localStorage.removeItem('spotilark-wallpaper');
+    }
+  };
+
   const value = {
     theme,
     setTheme,
@@ -137,6 +142,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setLightTheme,
     darkTheme,
     setDarkTheme,
+    wallpaper,
+    setWallpaper,
   };
 
   return (

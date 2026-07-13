@@ -1,0 +1,468 @@
+
+> spotilark@0.1.8 electron:dev
+> concurrently "next dev --turbopack -p 9002" "wait-on http://localhost:9002 && electron ."
+
+[0] Γû▓ Next.js 16.1.1 (Turbopack)
+[0] - Local:         http://localhost:9002
+[0] - Network:       http://26.44.193.168:9002
+[0] - Environments: .env.local
+[0] 
+[0] Γ£ô Starting...
+[0] ΓÜá The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+[0] Γ£ô Ready in 3.9s
+[0] Γùï Compiling / ...
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  HEAD / 200 in 13.6s (compile: 8.8s, proxy.ts: 374ms, render: 4.5s)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[1] 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  HEAD / 200 in 11.6s (compile: 3.8s, proxy.ts: 8ms, render: 7.8s)
+[0]  HEAD / 200 in 11.1s (compile: 5.2s, proxy.ts: 8ms, render: 5.9s)
+[0]  HEAD / 200 in 11.9s (compile: 3.9s, proxy.ts: 7ms, render: 8.0s)
+[0]  HEAD / 200 in 12.1s (compile: 4.6s, proxy.ts: 10ms, render: 7.5s)
+[0]  HEAD / 200 in 11.4s (compile: 4.9s, proxy.ts: 6ms, render: 6.5s)
+[0]  HEAD / 200 in 12.4s (compile: 6.3s, proxy.ts: 10ms, render: 6.1s)
+[0]  HEAD / 200 in 13.1s (compile: 6.8s, proxy.ts: 14ms, render: 6.4s)
+[0]  HEAD / 200 in 12.9s (compile: 6.5s, proxy.ts: 7ms, render: 6.4s)
+[0]  HEAD / 200 in 13.4s (compile: 6.7s, proxy.ts: 6ms, render: 6.7s)
+[0]  HEAD / 200 in 13.9s (compile: 5.0s, proxy.ts: 7ms, render: 8.9s)
+[0]  HEAD / 200 in 12.6s (compile: 6.6s, proxy.ts: 9ms, render: 6.0s)
+[0]  HEAD / 200 in 14.4s (compile: 7.4s, proxy.ts: 6ms, render: 7.0s)
+[0]  HEAD / 200 in 14.7s (compile: 8.1s, proxy.ts: 5ms, render: 6.6s)
+[0]  HEAD / 200 in 13.7s (compile: 5.3s, proxy.ts: 7ms, render: 8.3s)
+[0]  HEAD / 200 in 14.2s (compile: 7.5s, proxy.ts: 7ms, render: 6.7s)
+[0]  HEAD / 200 in 14.9s (compile: 8.0s, proxy.ts: 6ms, render: 6.9s)
+[0]  HEAD / 200 in 15.2s (compile: 8.1s, proxy.ts: 4ms, render: 7.1s)
+[0]  HEAD / 200 in 15.9s (compile: 6.9s, proxy.ts: 6ms, render: 9.0s)
+[0]  HEAD / 200 in 16.2s (compile: 7.0s, proxy.ts: 10ms, render: 9.2s)
+[0]  HEAD / 200 in 15.4s (compile: 7.5s, proxy.ts: 5ms, render: 7.9s)
+[0]  HEAD / 200 in 15.7s (compile: 7.3s, proxy.ts: 7ms, render: 8.4s)
+[0]  HEAD / 200 in 16.7s (compile: 9.9s, proxy.ts: 8ms, render: 6.8s)
+[0]  HEAD / 200 in 17.0s (compile: 8.8s, proxy.ts: 16ms, render: 8.2s)
+[0]  HEAD / 200 in 16.5s (compile: 10.1s, proxy.ts: 7ms, render: 6.3s)
+[0]  HEAD / 200 in 17.3s (compile: 9.1s, proxy.ts: 127ms, render: 8.1s)
+[0]  HEAD / 200 in 17.6s (compile: 8.3s, proxy.ts: 143ms, render: 9.1s)
+[0]  HEAD / 200 in 18.5s (compile: 9.7s, proxy.ts: 259ms, render: 8.6s)
+[0]  HEAD / 200 in 18.2s (compile: 9.1s, proxy.ts: 560ms, render: 8.5s)
+[0]  HEAD / 200 in 19.0s (compile: 9.7s, proxy.ts: 48ms, render: 9.3s)
+[0]  HEAD / 200 in 19.0s (compile: 13.1s, proxy.ts: 41ms, render: 5.9s)
+[0]  HEAD / 200 in 17.3s (compile: 9.8s, proxy.ts: 97ms, render: 7.4s)
+[0]  HEAD / 200 in 19.4s (compile: 11.4s, proxy.ts: 392ms, render: 7.7s)
+[0]  HEAD / 200 in 19.4s (compile: 11.7s, proxy.ts: 388ms, render: 7.3s)
+[0]  HEAD / 200 in 19.4s (compile: 11.6s, proxy.ts: 384ms, render: 7.5s)
+[0]  HEAD / 200 in 19.4s (compile: 10.8s, proxy.ts: 380ms, render: 8.3s)
+[0]  HEAD / 200 in 19.4s (compile: 10.0s, proxy.ts: 365ms, render: 9.1s)
+[0]  HEAD / 200 in 19.4s (compile: 12.5s, proxy.ts: 399ms, render: 6.6s)
+[0]  HEAD / 200 in 19.4s (compile: 13.1s, proxy.ts: 356ms, render: 6.0s)
+[0]  HEAD / 200 in 19.4s (compile: 11.9s, proxy.ts: 350ms, render: 7.2s)
+[0]  HEAD / 200 in 19.4s (compile: 11.5s, proxy.ts: 344ms, render: 7.6s)
+[0]  HEAD / 200 in 19.4s (compile: 10.4s, proxy.ts: 337ms, render: 8.7s)
+[0]  HEAD / 200 in 19.4s (compile: 12.9s, proxy.ts: 396ms, render: 6.2s)
+[0]  HEAD / 200 in 19.4s (compile: 11.8s, proxy.ts: 361ms, render: 7.2s)
+[0]  HEAD / 200 in 19.4s (compile: 12.2s, proxy.ts: 328ms, render: 7.0s)
+[0]  HEAD / 200 in 19.4s (compile: 9.8s, proxy.ts: 320ms, render: 9.4s)
+[0]  HEAD / 200 in 17.2s (compile: 9.2s, proxy.ts: 29ms, render: 7.9s)
+[0]  HEAD / 200 in 17.1s (compile: 8.3s, proxy.ts: 21ms, render: 8.8s)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET /video 200 in 19.6s (compile: 12.7s, proxy.ts: 56ms, render: 6.8s)
+[0]  GET / 200 in 878ms (compile: 356ms, proxy.ts: 247ms, render: 274ms)
+[0]  GET /settings 200 in 183ms (compile: 121ms, proxy.ts: 30ms, render: 32ms)
+[0]  GET /login 200 in 1064ms (compile: 1012ms, proxy.ts: 20ms, render: 32ms)
+[0]  GET / 200 in 65ms (compile: 28ms, proxy.ts: 18ms, render: 20ms)
+[0]  GET / 200 in 58ms (compile: 25ms, proxy.ts: 7ms, render: 26ms)
+[1] wait-on http://localhost:9002 && electron . exited with code 0
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  HEAD / 200 in 82ms (compile: 27ms, proxy.ts: 4ms, render: 51ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET / 200 in 195ms (compile: 33ms, proxy.ts: 9ms, render: 153ms)
+[0]  GET /search 200 in 152ms (compile: 101ms, proxy.ts: 12ms, render: 40ms)
+[0] [SearchRemote] DEEP SEARCH for: something just like this
+[0] [SearchRemote] Attempting local yt-dlp search...
+[0] [SearchRemote] yt-dlp FAILED: 
+[0] [SearchRemote] Attempting YouTube Data API v3...
+[0] [SearchRemote] YouTube Data API SUCCESS: found 30 results
+[0]  GET /api/search/remote?q=something%20just%20like%20this 200 in 3.0s (compile: 1645ms, proxy.ts: 11ms, render: 1386ms)
+[0] [Stream] Downloading fZUfdnmtg4Y with yt-dlp...
+[0] [Stream] yt-dlp failed for fZUfdnmtg4Y: Command failed: "C:\src\DevTools\yt-dlp.exe" -x --audio-format mp3 --audio-quality 5 -o "C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-fZUfdnmtg4Y.%(ext)s" --no-warnings "https://www.youtube.com/watch?v=fZUfdnmtg4Y"
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=fZUfdnmtg4Y 503 in 13.8s (compile: 49ms, proxy.ts: 8ms, render: 13.7s)
+[0] [Stream] Downloading fZUfdnmtg4Y with yt-dlp...
+[0] [Stream] yt-dlp failed for fZUfdnmtg4Y: Command failed: "C:\src\DevTools\yt-dlp.exe" -x --audio-format mp3 --audio-quality 5 -o "C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-fZUfdnmtg4Y.%(ext)s" --no-warnings "https://www.youtube.com/watch?v=fZUfdnmtg4Y"
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=fZUfdnmtg4Y 503 in 4.4s (compile: 12ms, proxy.ts: 7ms, render: 4.4s)
+[0] Γùï Compiling /api/library/import ...
+[0] [Stream] Downloading fZUfdnmtg4Y with yt-dlp...
+[0] [Stream] yt-dlp failed for fZUfdnmtg4Y: Command failed: "C:\src\DevTools\yt-dlp.exe" -x --audio-format mp3 --audio-quality 5 -o "C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-fZUfdnmtg4Y.%(ext)s" --no-warnings "https://www.youtube.com/watch?v=fZUfdnmtg4Y"
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=fZUfdnmtg4Y 503 in 5.6s (compile: 13ms, proxy.ts: 6ms, render: 5.6s)
+[0] Starting triple-format import for: The Chainsmokers &amp; Coldplay - Something Just Like This (Lyrics)
+[0] [YoutubeUtils] RESOLVING streams for ID: fZUfdnmtg4Y (Quality: low)
+[0] [YoutubeUtils] Primary attempt: Piped racing...
+[0] [YoutubeUtils] Trying: https://pipedapi.moomoo.me/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.us.projectsegfau.lt/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.drg.re/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.kavin.rocks/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.tokhmi.xyz/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.astreapp.ovh/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://piped-api.lunar.icu/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://pipedapi.nosebs.ru/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://api-piped.mha.fi/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Trying: https://piped-api.cfe.re/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Error from https://pipedapi.drg.re/api/v1/videos/fZUfdnmtg4Y: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.astreapp.ovh/api/v1/videos/fZUfdnmtg4Y: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.nosebs.ru/api/v1/videos/fZUfdnmtg4Y: fetch failed
+[0] [YoutubeUtils] Error from https://piped-api.cfe.re/api/v1/videos/fZUfdnmtg4Y: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.moomoo.me/api/v1/videos/fZUfdnmtg4Y: Status 502
+[0] [YoutubeUtils] Error from https://pipedapi.tokhmi.xyz/api/v1/videos/fZUfdnmtg4Y: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.kavin.rocks/api/v1/videos/fZUfdnmtg4Y: Status 403
+[0] [YoutubeUtils] Error from https://api-piped.mha.fi/api/v1/videos/fZUfdnmtg4Y: Status 522
+[0] [YoutubeUtils] Timeout from https://pipedapi.us.projectsegfau.lt/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] Timeout from https://piped-api.lunar.icu/api/v1/videos/fZUfdnmtg4Y
+[0] [YoutubeUtils] ALL INSTANCES FAILED (or timed out)
+[0] [YoutubeUtils] Fallback: local yt-dlp...
+[0] [YoutubeUtils] yt-dlp fallback failed: 
+[0] [YoutubeUtils] Fallback: ytdl-core...
+[0] [33mWARNING:[0m Using old cookie format, please use the new one instead. (https://github.com/distubejs/ytdl-core#cookies-support)
+[0]  POST /api/profile/record-play 200 in 1757ms (compile: 222ms, proxy.ts: 15ms, render: 1519ms)
+[0]  GET /video 200 in 167ms (compile: 39ms, proxy.ts: 26ms, render: 102ms)
+[0] [VideoSearch] Searching for: aurora
+[0]  GET /api/video/search?q=aurora 200 in 3.5s (compile: 82ms, proxy.ts: 12ms, render: 3.4s)
+[0] [33mWARNING:[0m Could not parse decipher function.
+[0] Stream URLs will be missing.
+[0] Please report this issue by uploading the "1783107752866-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+[0] [33mWARNING:[0m Could not parse n transform function.
+[0] Please report this issue by uploading the "1783107752874-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+[0] [YoutubeUtils] Γ£ô ytdl-core SUCCESS
+[0] Downloading thumbnail...
+[0] (node:14640) [node-telegram-bot-api] DeprecationWarning: Buffers will have their filenames default to "filename" instead of "data". See https://github.com/yagop/node-telegram-bot-api/blob/master/doc/usage.md#sending-files for more information on how sending files has been improved and on how to disable this deprecation message altogether.
+[0] (Use `node --trace-deprecation ...` to show where the warning was created)
+[0]  GET /api/stream/video?id=d_HlPboLRL8&quality=480 400 in 320ms (compile: 310ms, proxy.ts: 3ms, render: 7ms)
+[0]  POST /api/profile/record-play 200 in 1199ms (compile: 10ms, proxy.ts: 3ms, render: 1186ms)
+[0] Thumbnail uploaded to Telegram.
+[0] Downloading audio stream...
+[0] Downloading video stream...
+[0] Triple Import Error: Error: Cannot import: Audio stream failed to process or upload.
+[0]     at POST (src\app\api\library\import\route.ts:114:19)
+[0]   112 |
+[0]   113 |         if (!audioStreamUrl) {
+[0] > 114 |             throw new Error("Cannot import: Audio stream failed to process or upload.");
+[0]       |                   ^
+[0]   115 |         }
+[0]   116 |
+[0]   117 |         console.log(`[Import] Finalizing database record for user: ${user.id}`);
+[0]  POST /api/library/import 500 in 61s (compile: 4.9s, proxy.ts: 9ms, render: 56s)
+[0]  POST /api/profile/record-play 200 in 1545ms (compile: 16ms, proxy.ts: 15ms, render: 1514ms)
+[0]  POST /api/profile/record-play 200 in 1335ms (compile: 29ms, proxy.ts: 16ms, render: 1290ms)
+[0]  POST /api/profile/record-play 200 in 1619ms (compile: 5ms, proxy.ts: 3ms, render: 1611ms)
+[0]  POST /api/profile/record-play 200 in 1600ms (compile: 6ms, proxy.ts: 5ms, render: 1589ms)
+[0]  POST /api/profile/record-play 200 in 1603ms (compile: 15ms, proxy.ts: 16ms, render: 1572ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET /video 200 in 82ms (compile: 8ms, proxy.ts: 10ms, render: 64ms)
+[0]  GET /search 200 in 45ms (compile: 9ms, proxy.ts: 14ms, render: 22ms)
+[0] [SearchRemote] DEEP SEARCH for: something just like this
+[0] [SearchRemote] Attempting local yt-dlp search...
+[0] [SearchRemote] yt-dlp FAILED: 
+[0] [SearchRemote] Attempting YouTube Data API v3...
+[0] [SearchRemote] YouTube Data API SUCCESS: found 30 results
+[0]  GET /api/search/remote?q=something%20just%20like%20this 200 in 969ms (compile: 9ms, proxy.ts: 12ms, render: 948ms)
+[0] [Stream] Request for video: FM7MFYoylVs
+[0] [Stream] Downloading FM7MFYoylVs with yt-dlp...
+[0] [Stream] yt-dlp failed for FM7MFYoylVs: Command failed: C:\src\DevTools\yt-dlp.exe -x --audio-format mp3 --audio-quality 5 -o C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.%(ext)s --no-warnings --no-check-certificates https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0] [Stream] stdout: [youtube] Extracting URL: https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] [youtube] FM7MFYoylVs: Downloading webpage
+[0] [youtube] FM7MFYoylVs: Downloading android vr player API JSON
+[0] [info] FM7MFYoylVs: Downloading 1 format(s): 251
+[0] [download] Destination: C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.webm
+[0] 
+[download]   0.0% of    3.86MiB at  Unknown B/s ETA Unknown
+[download]   0.1% of    3.86MiB at  604.05KiB/s ETA 00:06  
+[download]   0.2% of    3.86MiB at    1.22MiB/s ETA 00:0
+[0] [Stream] stderr: ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=FM7MFYoylVs 503 in 7.6s (compile: 111ms, proxy.ts: 5ms, render: 7.5s)
+[0] [Stream] Request for video: FM7MFYoylVs
+[0] [Stream] Downloading FM7MFYoylVs with yt-dlp...
+[0] [Stream] yt-dlp failed for FM7MFYoylVs: Command failed: C:\src\DevTools\yt-dlp.exe -x --audio-format mp3 --audio-quality 5 -o C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.%(ext)s --no-warnings --no-check-certificates https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0] [Stream] stdout: [youtube] Extracting URL: https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] [youtube] FM7MFYoylVs: Downloading webpage
+[0] [youtube] FM7MFYoylVs: Downloading android vr player API JSON
+[0] [info] FM7MFYoylVs: Downloading 1 format(s): 251
+[0] [download] C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.webm has already been downloaded
+[0] 
+[download] 100% of    3.86MiB
+[0] 
+[0] [Stream] stderr: ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=FM7MFYoylVs 503 in 3.5s (compile: 4ms, proxy.ts: 3ms, render: 3.5s)
+[0] [Stream] Request for video: FM7MFYoylVs
+[0] [Stream] Downloading FM7MFYoylVs with yt-dlp...
+[0] [Stream] yt-dlp failed for FM7MFYoylVs: Command failed: C:\src\DevTools\yt-dlp.exe -x --audio-format mp3 --audio-quality 5 -o C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.%(ext)s --no-warnings --no-check-certificates https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0] [Stream] stdout: [youtube] Extracting URL: https://www.youtube.com/watch?v=FM7MFYoylVs
+[0] [youtube] FM7MFYoylVs: Downloading webpage
+[0] [youtube] FM7MFYoylVs: Downloading android vr player API JSON
+[0] [info] FM7MFYoylVs: Downloading 1 format(s): 251
+[0] [download] C:\Users\DRONER~1\AppData\Local\Temp\spotilark-streams\dl-FM7MFYoylVs.webm has already been downloaded
+[0] 
+[download] 100% of    3.86MiB
+[0] 
+[0] [Stream] stderr: ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location
+[0] 
+[0]  GET /api/stream/youtube?v=FM7MFYoylVs 503 in 5.1s (compile: 8ms, proxy.ts: 4ms, render: 5.1s)
+[0]  POST /api/profile/record-play 200 in 1202ms (compile: 11ms, proxy.ts: 15ms, render: 1175ms)
+[0]  POST /api/profile/record-play 200 in 1201ms (compile: 12ms, proxy.ts: 15ms, render: 1174ms)
+[0]  POST /api/profile/record-play 200 in 1166ms (compile: 18ms, proxy.ts: 12ms, render: 1137ms)
+[0]  POST /api/profile/record-play 200 in 1488ms (compile: 6ms, proxy.ts: 4ms, render: 1477ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET /search 200 in 230ms (compile: 12ms, proxy.ts: 19ms, render: 198ms)
+[0] [SearchRemote] DEEP SEARCH for: something just like this
+[0] [SearchRemote] Attempting local yt-dlp search...
+[0] [SearchRemote] yt-dlp FAILED: 
+[0] [SearchRemote] Attempting YouTube Data API v3...
+[0] [SearchRemote] YouTube Data API SUCCESS: found 30 results
+[0]  GET /api/search/remote?q=something%20just%20like%20this 200 in 952ms (compile: 4ms, proxy.ts: 5ms, render: 943ms)
+[0] [Stream] Request for video: FM7MFYoylVs
+[0] [Stream] Downloading FM7MFYoylVs with yt-dlp...
+[0] [Stream] SUCCESS: 4050362 bytes cached for FM7MFYoylVs (audio/webm)
+[0]  GET /api/stream/youtube?v=FM7MFYoylVs 200 in 5.9s (compile: 105ms, proxy.ts: 6ms, render: 5.8s)
+[0]  POST /api/profile/record-play 200 in 1283ms (compile: 10ms, proxy.ts: 11ms, render: 1262ms)
+[0]  POST /api/profile/record-play 200 in 1472ms (compile: 11ms, proxy.ts: 8ms, render: 1452ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET /search 200 in 104ms (compile: 12ms, proxy.ts: 18ms, render: 75ms)
+[0] [SearchRemote] DEEP SEARCH for: sing
+[0] [SearchRemote] Attempting local yt-dlp search...
+[0] [SearchRemote] yt-dlp FAILED: 
+[0] [SearchRemote] Attempting YouTube Data API v3...
+[0] [SearchRemote] YouTube Data API SUCCESS: found 30 results
+[0]  GET /api/search/remote?q=sing 200 in 1027ms (compile: 8ms, proxy.ts: 11ms, render: 1007ms)
+[0] [SearchRemote] DEEP SEARCH for: sing 2
+[0] [SearchRemote] Attempting local yt-dlp search...
+[0] [SearchRemote] yt-dlp FAILED: 
+[0] [SearchRemote] Attempting YouTube Data API v3...
+[0] [SearchRemote] YouTube Data API SUCCESS: found 30 results
+[0]  GET /api/search/remote?q=sing%202 200 in 680ms (compile: 6ms, proxy.ts: 9ms, render: 665ms)
+[0] [Stream] Request for video: nUlgqFFOXrU
+[0] [Stream] Downloading nUlgqFFOXrU with yt-dlp...
+[0] [Stream] SUCCESS: 484762 bytes cached for nUlgqFFOXrU (audio/webm)
+[0]  GET /api/stream/youtube?v=nUlgqFFOXrU 200 in 8.2s (compile: 9ms, proxy.ts: 13ms, render: 8.2s)
+[0] [Stream] Request for video: nUlgqFFOXrU
+[0] [Stream] Cache HIT: nUlgqFFOXrU (audio/webm)
+[0]  GET /api/stream/youtube?v=nUlgqFFOXrU 200 in 18ms (compile: 3ms, proxy.ts: 3ms, render: 12ms)
+[0] [Stream] Request for video: ZJocdnMvTYs
+[0] [Stream] Downloading ZJocdnMvTYs with yt-dlp...
+[0] [Stream] SUCCESS: 2525280 bytes cached for ZJocdnMvTYs (audio/webm)
+[0]  GET /api/stream/youtube?v=ZJocdnMvTYs 200 in 5.5s (compile: 7ms, proxy.ts: 5ms, render: 5.5s)
+[0]  POST /api/profile/record-play 200 in 1891ms (compile: 4ms, proxy.ts: 4ms, render: 1883ms)
+[0]  POST /api/profile/record-play 200 in 1199ms (compile: 15ms, proxy.ts: 12ms, render: 1171ms)
+[0]  POST /api/profile/record-play 200 in 1525ms (compile: 24ms, proxy.ts: 22ms, render: 1479ms)
+[0]  POST /api/profile/record-play 200 in 1361ms (compile: 36ms, proxy.ts: 13ms, render: 1312ms)
+[0]  POST /api/profile/record-play 200 in 1353ms (compile: 21ms, proxy.ts: 10ms, render: 1321ms)
+[0] Starting triple-format import for: Could Have Been Me
+[0] [YoutubeUtils] RESOLVING streams for ID: ZJocdnMvTYs (Quality: low)
+[0] [YoutubeUtils] Primary attempt: Piped racing...
+[0] [YoutubeUtils] Trying: https://pipedapi.astreapp.ovh/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://piped-api.garudalinux.org/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.rivo.lol/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://api.piped.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.nosebs.ru/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.adminforge.de/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://api-piped.mha.fi/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.tokhmi.xyz/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.pablo.casa/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://piped-api.cfe.re/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Error from https://pipedapi.astreapp.ovh/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://piped-api.garudalinux.org/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.nosebs.ru/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.rivo.lol/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.pablo.casa/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://piped-api.cfe.re/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://api.piped.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs: Unexpected token 'P', "Piped has shutdown" is not valid JSON
+[0] [YoutubeUtils] Error from https://pipedapi.adminforge.de/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://api-piped.mha.fi/api/v1/videos/ZJocdnMvTYs: Status 522
+[0] [YoutubeUtils] Error from https://pipedapi.tokhmi.xyz/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] ALL INSTANCES FAILED (or timed out)
+[0] [YoutubeUtils] Fallback: local yt-dlp...
+[0] [YoutubeUtils] yt-dlp fallback failed: 
+[0] [YoutubeUtils] Fallback: ytdl-core...
+[0] [33mWARNING:[0m Using old cookie format, please use the new one instead. (https://github.com/distubejs/ytdl-core#cookies-support)
+[0] [33mWARNING:[0m Could not parse decipher function.
+[0] Stream URLs will be missing.
+[0] Please report this issue by uploading the "1783108700191-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+[0] [33mWARNING:[0m Could not parse n transform function.
+[0] Please report this issue by uploading the "1783108700204-player-script.js" file on https://github.com/distubejs/ytdl-core/issues/144.
+[0] [YoutubeUtils] Γ£ô ytdl-core SUCCESS
+[0] Downloading thumbnail...
+[0] Thumbnail uploaded to Telegram.
+[0] Downloading audio stream...
+[0] Downloading video stream...
+[0] Triple Import Error: Error: Cannot import: Audio stream failed to process or upload.
+[0]     at POST (src\app\api\library\import\route.ts:114:19)
+[0]   112 |
+[0]   113 |         if (!audioStreamUrl) {
+[0] > 114 |             throw new Error("Cannot import: Audio stream failed to process or upload.");
+[0]       |                   ^
+[0]   115 |         }
+[0]   116 |
+[0]   117 |         console.log(`[Import] Finalizing database record for user: ${user.id}`);
+[0]  POST /api/library/import 500 in 10.2s (compile: 692ms, proxy.ts: 16ms, render: 9.5s)
+[0] Starting triple-format import for: Could Have Been Me
+[0] [YoutubeUtils] RESOLVING streams for ID: ZJocdnMvTYs (Quality: low)
+[0] [YoutubeUtils] Primary attempt: Piped racing...
+[0] [YoutubeUtils] Trying: https://pipedapi.drg.re/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.pablo.casa/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://piped-api.lunar.icu/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://api-piped.mha.fi/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.kavin.rocks/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.astreapp.ovh/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://api.piped.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.nosebs.ru/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.us.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Trying: https://pipedapi.moomoo.me/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Error from https://pipedapi.drg.re/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.pablo.casa/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.astreapp.ovh/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://pipedapi.nosebs.ru/api/v1/videos/ZJocdnMvTYs: fetch failed
+[0] [YoutubeUtils] Error from https://api-piped.mha.fi/api/v1/videos/ZJocdnMvTYs: Status 525
+[0] [YoutubeUtils] Error from https://pipedapi.kavin.rocks/api/v1/videos/ZJocdnMvTYs: Status 403
+[0] [YoutubeUtils] Error from https://api.piped.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs: Unexpected token 'P', "Piped has shutdown" is not valid JSON
+[0] [YoutubeUtils] Error from https://pipedapi.moomoo.me/api/v1/videos/ZJocdnMvTYs: Status 502
+[0] [YoutubeUtils] Timeout from https://piped-api.lunar.icu/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] Timeout from https://pipedapi.us.projectsegfau.lt/api/v1/videos/ZJocdnMvTYs
+[0] [YoutubeUtils] ALL INSTANCES FAILED (or timed out)
+[0] [YoutubeUtils] Fallback: local yt-dlp...
+[0] [YoutubeUtils] yt-dlp fallback failed: 
+[0] [YoutubeUtils] Fallback: ytdl-core...
+[0] [YoutubeUtils] Γ£ô ytdl-core SUCCESS
+[0] Downloading thumbnail...
+[0] Thumbnail uploaded to Telegram.
+[0] Downloading audio stream...
+[0] Downloading video stream...
+[0] Triple Import Error: Error: Cannot import: Audio stream failed to process or upload.
+[0]     at POST (src\app\api\library\import\route.ts:114:19)
+[0]   112 |
+[0]   113 |         if (!audioStreamUrl) {
+[0] > 114 |             throw new Error("Cannot import: Audio stream failed to process or upload.");
+[0]       |                   ^
+[0]   115 |         }
+[0]   116 |
+[0]   117 |         console.log(`[Import] Finalizing database record for user: ${user.id}`);
+[0]  POST /api/library/import 500 in 16.1s (compile: 7ms, proxy.ts: 7ms, render: 16.1s)
+[0]  GET /video 200 in 67ms (compile: 12ms, proxy.ts: 32ms, render: 23ms)
+[0] [VideoSearch] Searching for: could have been me
+[0]  GET /api/video/search?q=could%20have%20been%20me 200 in 3.5s (compile: 6ms, proxy.ts: 6ms, render: 3.5s)
+[0]  POST /api/profile/record-play 200 in 1201ms (compile: 4ms, proxy.ts: 4ms, render: 1194ms)
+[0] [Video] Request for video: J2rHco9Ju9k at 360p
+[0] [Video] Downloading J2rHco9Ju9k at 360p with yt-dlp...
+[0] [Video] SUCCESS: 2386780 bytes cached for J2rHco9Ju9k
+[0]  GET /api/stream/video?id=J2rHco9Ju9k&quality=360 206 in 11.1s (compile: 112ms, proxy.ts: 4ms, render: 11.0s)
+[0] [Video] Request for video: J2rHco9Ju9k at 360p
+[0] [Video] Cache HIT: J2rHco9Ju9k
+[0]  GET /api/stream/video?id=J2rHco9Ju9k&quality=360 206 in 27ms (compile: 6ms, proxy.ts: 3ms, render: 18ms)
+[0]  POST /api/profile/record-play 200 in 1181ms (compile: 12ms, proxy.ts: 2ms, render: 1166ms)
+[0]  POST /api/profile/record-play 200 in 1194ms (compile: 7ms, proxy.ts: 3ms, render: 1185ms)
+[0]  GET /api/download 200 in 676ms (compile: 660ms, proxy.ts: 10ms, render: 6ms)
+[0]  POST /api/download 200 in 35ms (compile: 9ms, proxy.ts: 14ms, render: 11ms)
+[0] [Download] Task dl-1783108793463-tcmtwyj failed: Error: yt-dlp failed: 
+[0]     at processDownload (src\app\api\download\route.ts:122:15)
+[0]   120 |         task.progress = 40;
+[0]   121 |     } catch (err: any) {
+[0] > 122 |         throw new Error(`yt-dlp failed: ${err.message}`);
+[0]       |               ^
+[0]   123 |     }
+[0]   124 |
+[0]   125 |     task.title = metadata.title || "Untitled";
+[0]  GET /api/download 200 in 13ms (compile: 3ms, proxy.ts: 3ms, render: 6ms)
+[0]  POST /api/download 200 in 66ms (compile: 23ms, proxy.ts: 15ms, render: 29ms)
+[0] [Download] Task dl-1783108799816-m2pea1q failed: Error: yt-dlp failed: 
+[0]     at processDownload (src\app\api\download\route.ts:122:15)
+[0]   120 |         task.progress = 40;
+[0]   121 |     } catch (err: any) {
+[0] > 122 |         throw new Error(`yt-dlp failed: ${err.message}`);
+[0]       |               ^
+[0]   123 |     }
+[0]   124 |
+[0]   125 |     task.title = metadata.title || "Untitled";
+[0]  GET /api/download 200 in 28ms (compile: 9ms, proxy.ts: 10ms, render: 8ms)
+[0]  POST /api/profile/record-play 200 in 1222ms (compile: 15ms, proxy.ts: 12ms, render: 1195ms)
+[0] [Video] Request for video: J2rHco9Ju9k at 360p
+[0] [Video] Cache HIT: J2rHco9Ju9k
+[0]  GET /api/stream/video?id=J2rHco9Ju9k&quality=360 200 in 50ms (compile: 16ms, proxy.ts: 10ms, render: 24ms)
+[0] [Video] Request for video: J2rHco9Ju9k at 480p
+[0] [Video] Cache HIT: J2rHco9Ju9k
+[0]  GET /api/stream/video?id=J2rHco9Ju9k&quality=480 206 in 32ms (compile: 5ms, proxy.ts: 7ms, render: 19ms)
+[0]  POST /api/profile/record-play 200 in 1230ms (compile: 4ms, proxy.ts: 4ms, render: 1222ms)
+[0]  POST /api/profile/record-play 200 in 1235ms (compile: 4ms, proxy.ts: 7ms, render: 1225ms)
+[0]  POST /api/profile/record-play 200 in 1640ms (compile: 12ms, proxy.ts: 13ms, render: 1615ms)
+[0]  POST /api/profile/record-play 200 in 1050ms (compile: 7ms, proxy.ts: 11ms, render: 1032ms)
+[0]  POST /api/profile/record-play 200 in 1975ms (compile: 11ms, proxy.ts: 15ms, render: 1948ms)
+[0]  POST /api/profile/record-play 200 in 1195ms (compile: 15ms, proxy.ts: 11ms, render: 1169ms)
+[0]  POST /api/profile/record-play 200 in 2.2s (compile: 15ms, proxy.ts: 12ms, render: 2.2s)
+[0]  POST /api/profile/record-play 200 in 1541ms (compile: 23ms, proxy.ts: 12ms, render: 1506ms)
+[0]  POST /api/profile/record-play 200 in 1305ms (compile: 3ms, proxy.ts: 6ms, render: 1296ms)
+[0]  POST /api/profile/record-play 200 in 1156ms (compile: 18ms, proxy.ts: 13ms, render: 1124ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  HEAD / 200 in 127ms (compile: 30ms, proxy.ts: 5ms, render: 92ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET / 200 in 248ms (compile: 102ms, proxy.ts: 14ms, render: 132ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET /offline 200 in 254ms (compile: 152ms, proxy.ts: 23ms, render: 79ms)
+[0]  GET / 200 in 260ms (compile: 61ms, proxy.ts: 17ms, render: 182ms)
+[0]  --- Spotilark Device Engine V1.5.0 --- 
+[0]  GET / 200 in 144ms (compile: 65ms, proxy.ts: 27ms, render: 52ms)
+[0] [?25h
+[0] next dev --turbopack -p 9002 exited with code 1

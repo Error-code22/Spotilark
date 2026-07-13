@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { createClient } from '@/lib/supabase/server';
 
+export async function generateStaticParams() {
+  return [];
+}
+
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google-drive/callback';
@@ -67,7 +71,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ serv
             // Using the Readable.toWeb() method to convert Node.js Readable stream to Web ReadableStream
             // This is necessary for compatibility with Next.js Response body
             const { Readable } = await import('stream');
-            const webStream = Readable.toWeb(fileResponse.data as Readable) as ReadableStream<Uint8Array>;
+            const webStream = (Readable as any).toWeb(fileResponse.data) as ReadableStream<Uint8Array>;
 
             return new NextResponse(webStream, { headers });
 

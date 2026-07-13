@@ -1,33 +1,41 @@
 export const PIPED_INSTANCES = [
-    'https://pipedapi.kavin.rocks',  // Official, multi-region CDN
-    'https://pipedapi.tokhmi.xyz',   // US CDN
-    'https://pipedapi.moomoo.me',    // GB CDN
-    'https://pipedapi.syncpundit.io',// Multi-region CDN
-    'https://api-piped.mha.fi',      // FI CDN
-    'https://piped-api.garudalinux.org', // FI CDN
-    'https://pipedapi.rivo.lol',     // CL CDN
-    'https://pipedapi.leptons.xyz',  // AT CDN
-    'https://piped-api.lunar.icu',   // DE CDN
-    'https://ytapi.dc09.ru',         // RU CDN
-    'https://pipedapi.colinslegacy.com', // US CDN
-    'https://yapi.vyper.me',         // CL CDN
-    'https://api.looleh.xyz',        // NL CDN
-    'https://piped-api.cfe.re',      // PL CDN
-    'https://pipedapi.nosebs.ru',    // FI CDN
-    'https://pa.mint.lgbt',          // CA, no CDN
-    'https://pa.il.ax',              // US, no CDN
-    'https://api.piped.projectsegfau.lt', // FR, no CDN
-    'https://pipedapi.us.projectsegfau.lt', // US, no CDN
-    'https://watchapi.whatever.social', // US, no CDN
+    'https://pipedapi.kavin.rocks',
+    'https://piped-api.lunar.icu',
+    'https://pipedapi.tokhmi.xyz',
+    'https://pipedapi.rivo.lol',
+    'https://piped-api.cfe.re',
+    'https://api.piped.projectsegfau.lt',
+    'https://api-piped.mha.fi',
+    'https://pipedapi.moomoo.me',
+    'https://piped-api.garudalinux.org',
+    'https://pipedapi.nosebs.ru',
+    'https://pipedapi.us.projectsegfau.lt',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.qdi.fi',
+    'https://pipedapi.astreapp.ovh',
+    'https://pipedapi.pablo.casa',
+    'https://pipedapi.drg.re',
 ];
 
 export const INVIDIOUS_INSTANCES = [
-    'https://invidious.nerdvpn.de',  // Healthy, 100% uptime, UA
-    'https://invidious.f5.si',       // Healthy, 98.6% uptime, JP
-    'https://inv.nadeko.net',        // Up, multi-backend
-    'https://yewtu.be',              // Often works despite 403s (retry with headers)
+    'https://invidious.nerdvpn.de',
+    'https://invidious.f5.si',
+    'https://inv.nadeko.net',
     'https://inv.tux.pizza',
     'https://invidious.privacydev.net',
+    'https://yewtu.be',
+    'https://iv.melmac.space',
+    'https://invidious.snopyta.org',
+    'https://invidious.tiekoetter.com',
+    'https://inv.vern.cc',
+    'https://invidious.no-logs.com',
+];
+
+// Cobalt API instances (cobalt.tools downloader)
+export const COBALT_INSTANCES = [
+    'https://api.cobalt.tools',
+    'https://co.wuk.sh',
+    'https://cobalt-api.kwiatekmiki.com',
 ];
 
 export function shuffle<T>(array: T[]): T[] {
