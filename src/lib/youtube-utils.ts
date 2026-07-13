@@ -108,8 +108,8 @@ export async function resolveYouTubeStreams(videoId: string, quality: string = '
             console.log(`[YoutubeUtils] Primary attempt: yt-dlp...`);
             const cookieArgs = await getYtDlpCookieArgs();
             const args = [
-                '-f', 'bestaudio/best',
-                '--get-url', '--no-playlist', '--no-warnings', '--no-check-certificates',
+                '-g',
+                '--no-playlist', '--no-warnings', '--no-check-certificates',
                 '--extractor-args', 'youtube:player_client=web',
                 '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 ...(cookieArgs.cookies ? ['--cookies', cookieArgs.cookies] : []),
