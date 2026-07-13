@@ -5,7 +5,6 @@ import { writeFile, readFile, unlink, access } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 
-export const dynamic = 'force-dynamic';
 
 const cookieDir = join(tmpdir(), "spotilark-cookies");
 

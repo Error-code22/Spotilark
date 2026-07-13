@@ -10,7 +10,6 @@ import { existsSync, mkdirSync } from "fs";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { YTDLP_PATH } from "@/lib/binary-paths";
 
-export const dynamic = 'force-dynamic';
 
 const videoCacheDir = join(tmpdir(), "spotilark-videos");
 const COOKIE_PATH = join(tmpdir(), "spotilark-cookies", "youtube-main.txt");

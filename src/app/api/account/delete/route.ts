@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/server';
 
 import { v2 as cloudinary } from 'cloudinary';
 
-export const dynamic = 'force-dynamic';
 
 // Configure Cloudinary
 cloudinary.config({

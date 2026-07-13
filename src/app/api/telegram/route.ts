@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export const dynamic = 'force-dynamic';
 
 // Simple in-memory cache for file paths to speed up subsequent range requests
 const filePathCache = new Map<string, { path: string; expires: number }>();

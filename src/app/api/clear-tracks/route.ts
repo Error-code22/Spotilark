@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
-export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
     try {

@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 import { execSync } from "child_process";
 import { YTDLP_PATH } from "@/lib/binary-paths";
 
-export const dynamic = 'force-dynamic';
 
 interface VideoResult {
     id: string;

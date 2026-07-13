@@ -9,7 +9,6 @@ import { promisify } from "util";
 import { existsSync, mkdirSync } from "fs";
 import { YTDLP_PATH, FFMPEG_PATH } from "@/lib/binary-paths";
 
-export const dynamic = 'force-dynamic';
 
 const execFileAsync = promisify(execFile);
 const COOKIE_PATH = join(homedir(), "AppData", "Local", "Temp", "spotilark-cookies", "youtube-main.txt");
