@@ -66,6 +66,8 @@ interface PlayerContextType {
   addLocalTracks: (tracks: Track[], files?: File[]) => Promise<void>;
   cloudLibrary: Track[];
   unifiedLibrary: Track[];
+  recentlyPlayed: Track[];
+  playCounts: Record<string, number>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -82,6 +84,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
   const [localLibrary, setLocalLibrary] = useState<Track[]>([]);
   const [trackQueue, setTrackQueue] = useState<Track[]>([]);
   const [isLyricsViewOpen, setIsLyricsViewOpen] = useState(false);
+  const [recentlyPlayed, setRecentlyPlayed] = useState<Track[]>([]);
+  const [playCounts, setPlayCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('spotilark-recently-played');
+      if (saved) setRecentlyPlayed(JSON.parse(saved));
+      const counts = localStorage.getItem('spotilark-play-counts');
+      if (counts) setPlayCounts(JSON.parse(counts));
+    } catch {}
+  }, []);
 
   // Load local library from storage
   useEffect(() => {
@@ -1398,6 +1411,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     addLocalTracks,
     cloudLibrary,
     unifiedLibrary,
+    recentlyPlayed,
+    playCounts,
   };
 
   // Watchdog: If playing but stuck at 0:00 for too long
