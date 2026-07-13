@@ -68,6 +68,7 @@ interface PlayerContextType {
   unifiedLibrary: Track[];
   recentlyPlayed: Track[];
   playCounts: Record<string, number>;
+  removeLocalTracks: (trackIds: string[]) => Promise<void>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -127,6 +128,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
       const unique = Array.from(new Map(updated.map(t => [t.id, t])).values());
       localStorage.setItem('spotilark-local-library', JSON.stringify(unique));
       return unique;
+    });
+  }, []);
+
+  const removeLocalTracks = useCallback(async (trackIds: string[]) => {
+    const idSet = new Set(trackIds);
+    setLocalLibrary(prev => {
+      const remaining = prev.filter(t => !idSet.has(t.id));
+      localStorage.setItem('spotilark-local-library', JSON.stringify(remaining));
+      return remaining;
     });
   }, []);
 
@@ -1413,6 +1423,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
     unifiedLibrary,
     recentlyPlayed,
     playCounts,
+    removeLocalTracks,
   };
 
   // Watchdog: If playing but stuck at 0:00 for too long
