@@ -106,19 +106,23 @@ export async function resolveYouTubeStreams(videoId: string, quality: string = '
         try {
             console.log(`[YoutubeUtils] Primary attempt: yt-dlp...`);
             const args = [
-                '-f', 'bestaudio[ext=m4a]/bestaudio',
-                '--get-url', '--no-playlist', '--no-warnings',
+                '-f', 'bestaudio[ext=m4a]/bestaudio[acodec*=mp4a]/bestaudio',
+                '--get-url', '--no-playlist', '--no-warnings', '--no-check-certificates',
+                '--extractor-args', 'youtube:player_client=web',
+                '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 `https://www.youtube.com/watch?v=${videoId}`
             ];
-            const { stdout } = await execFileAsync(YTDLP_PATH, args, { timeout: 30000 });
+            const { stdout, stderr } = await execFileAsync(YTDLP_PATH, args, { timeout: 30000 });
             const url = stdout.trim();
             if (url && url.startsWith('http')) {
                 streams.audioUrl = url;
                 console.log(`[YoutubeUtils] ✓ yt-dlp SUCCESS`);
                 return streams;
             }
+            console.log(`[YoutubeUtils] yt-dlp returned empty URL`);
         } catch (e: any) {
-            console.log(`[YoutubeUtils] yt-dlp failed: ${e.message?.slice(0, 100)}`);
+            const errMsg = e.stderr?.toString()?.slice(0, 200) || e.message?.slice(0, 200);
+            console.log(`[YoutubeUtils] yt-dlp failed: ${errMsg}`);
         }
     }
 
