@@ -1,4 +1,10 @@
 import { PIPED_INSTANCES, INVIDIOUS_INSTANCES, COBALT_INSTANCES, shuffle, getStealthHeaders } from "./network-instances";
+import { YTDLP_PATH } from "./binary-paths";
+import { execFile } from "child_process";
+import { promisify } from "util";
+
+const execFileAsync = promisify(execFile);
+
 let ytdl: any;
 if (typeof window === "undefined") {
     ytdl = require("@distube/ytdl-core");
@@ -95,9 +101,30 @@ export async function resolveYouTubeStreams(videoId: string, quality: string = '
         return quality === 'low' ? rateA - rateB : rateB - rateA;
     };
 
-    // --- 1. PRIMARY: Race Piped Instances ---
-    // Piped is generally more reliable for server-side fetches as they proxy the streams
-    console.log(`[YoutubeUtils] Primary attempt: Piped racing...`);
+    // --- 0. PRIMARY: yt-dlp (server-side, most reliable) ---
+    if (typeof window === "undefined") {
+        try {
+            console.log(`[YoutubeUtils] Primary attempt: yt-dlp...`);
+            const args = [
+                '-f', 'bestaudio[ext=m4a]/bestaudio',
+                '--get-url', '--no-playlist', '--no-warnings',
+                `https://www.youtube.com/watch?v=${videoId}`
+            ];
+            const { stdout } = await execFileAsync(YTDLP_PATH, args, { timeout: 30000 });
+            const url = stdout.trim();
+            if (url && url.startsWith('http')) {
+                streams.audioUrl = url;
+                console.log(`[YoutubeUtils] ✓ yt-dlp SUCCESS`);
+                return streams;
+            }
+        } catch (e: any) {
+            console.log(`[YoutubeUtils] yt-dlp failed: ${e.message?.slice(0, 100)}`);
+        }
+    }
+
+    // --- 1. FALLBACK: Race Piped Instances ---
+    // Piped as fallback if yt-dlp fails
+    console.log(`[YoutubeUtils] Fallback: Piped racing...`);
     const pipedPool = shuffle(PIPED_INSTANCES);
     const pipedWinner = await raceInstances(
         pipedPool.slice(0, 10).map(instance => `${instance}/api/v1/videos/${videoId}`),
