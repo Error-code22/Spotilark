@@ -2,17 +2,7 @@ import { SpotilarkLayout } from '@/components/spotilark-layout';
 import { Suspense } from 'react';
 import FolderContentClient from './FolderContentClient';
 
-// Set dynamicParams to false to ensure only listed params are exported
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return [
-    { sourceName: 'uploaded-music' },
-    { sourceName: 'local' },
-    { sourceName: 'cloud' },
-    { sourceName: 'stream' }
-  ];
-}
+export const dynamic = 'force-dynamic';
 
 // Server component that receives the params
 export default async function FolderContentPage({ params }: { params: Promise<{ sourceName: string }> }) {
