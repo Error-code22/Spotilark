@@ -55,7 +55,7 @@ del "%SDK_DIR%\cmdline-tools.zip"
 :: Install required packages
 echo [5/5] Installing SDK packages (platforms, build-tools, platform-tools)...
 echo This will download ~150 MB more...
-set JAVA_HOME=D:\Android studio\jbr
+set JAVA_HOME=C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot
 "%SDK_DIR%\cmdline-tools\latest\bin\sdkmanager.bat" "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
 if %ERRORLEVEL% NEQ 0 (

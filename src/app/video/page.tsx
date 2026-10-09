@@ -13,6 +13,7 @@ import Pause from "lucide-react/icons/pause";
 import Youtube from "lucide-react/icons/youtube";
 import FolderArchive from "lucide-react/icons/folder-archive";
 import X from "lucide-react/icons/x";
+import { getApiBaseUrl } from "@/lib/api-utils";
 import Loader2 from "lucide-react/icons/loader-2";
 import Upload from "lucide-react/icons/upload";
 import List from "lucide-react/icons/list";
@@ -199,7 +200,7 @@ export default function VideoPage() {
 
     setIsSearching(true);
     try {
-      const res = await fetch(`/api/video/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      const res = await fetch(`${getApiBaseUrl()}/api/video/search?q=${encodeURIComponent(searchQuery.trim())}`);
       if (res.ok) {
         const data = await res.json();
         setYoutubeResults(data.results || []);

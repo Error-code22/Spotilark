@@ -30,7 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UndoDotIcon } from "./UndoDotIcon";
 import { RedoDotIcon } from "./RedoDotIcon";
 
@@ -135,6 +135,36 @@ const MobilePlayer = ({
   VolumeIcon, volume, handleVolumeChange
 }: any) => {
   const [swipeDirection, setSwipeDirection] = useState(0);
+  const [bottomInset, setBottomInset] = useState(0);
+
+  useEffect(() => {
+    const detectInset = () => {
+      // Method 1: screen.availHeight vs screen.height (reliable for Android nav bar)
+      const navBar = screen.height - screen.availHeight;
+      if (navBar > 0) { setBottomInset(navBar); return; }
+
+      // Method 2: visualViewport (works on iOS and some Android)
+      const vv: any = window.visualViewport;
+      if (vv) {
+        const inset = window.innerHeight - vv.height;
+        if (inset > 0) { setBottomInset(inset); return; }
+      }
+
+      // Method 3: test element measurement
+      const el = document.createElement('div');
+      el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:1px;z-index:-1';
+      document.body.appendChild(el);
+      const rect = el.getBoundingClientRect();
+      const measured = window.innerHeight - rect.bottom;
+      document.body.removeChild(el);
+      if (measured > 0) { setBottomInset(measured); return; }
+
+      setBottomInset(0);
+    };
+    detectInset();
+    window.addEventListener('resize', detectInset);
+    return () => window.removeEventListener('resize', detectInset);
+  }, []);
 
   const handleDragEnd = (_: any, info: any) => {
     const threshold = 70;
@@ -164,7 +194,7 @@ const MobilePlayer = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-[72px] bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1.5 group select-none overflow-hidden">
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-2xl border-t border-border z-40 px-4 flex flex-col justify-center gap-1 group select-none" style={{ paddingBottom: `${bottomInset}px` }}>
       {/* TOP ROW: Info + Buttons */}
       <div className="flex items-center justify-between w-full h-16">
         {/* LEFT: Track Info Area (Draggable & Clickable) */}
@@ -240,7 +270,7 @@ const MobilePlayer = ({
       </div>
 
       {/* BOTTOM ROW: The specific progress line starting after the image */}
-      <div className="flex items-center w-full px-1 pb-2.5">
+      <div className="flex items-center w-full px-1 pb-1">
         <div className="w-11 flex-shrink-0" />
         <div className="w-4 flex-shrink-0" />
         <div className="flex-1 h-1.5 bg-foreground/5 rounded-full overflow-hidden">

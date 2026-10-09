@@ -18,6 +18,7 @@ import { resolveYouTubeStream } from "@/lib/youtube-utils";
 import { resolveTelegramLink } from "@/lib/telegram-client";
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
 import { useDevices } from "./DeviceContext";
+import { getApiBaseUrl } from "@/lib/api-utils";
 
 type RepeatMode = "off" | "all" | "one";
 
@@ -751,7 +752,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
             if (trackId) {
               console.log(`[Player] Resolving YouTube URL: ${currentTrack.title}`);
               try {
-                const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                const res = await fetch(`${getApiBaseUrl()}/api/stream/youtube?v=${trackId}&redirect=true`);
                 const data = await res.json();
                 if (data.url) {
                   audioSrc = data.url;
@@ -849,7 +850,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
                         currentTrack.id.replace('yt-', '') : null;
                       if (trackId) {
                         try {
-                          const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                          const res = await fetch(`${getApiBaseUrl()}/api/stream/youtube?v=${trackId}&redirect=true`);
                           const data = await res.json();
                           if (data.url) finalUrl = data.url;
                         } catch {}
@@ -1110,7 +1111,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
 
             if (trackId) {
               try {
-                const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+                const res = await fetch(`${getApiBaseUrl()}/api/stream/youtube?v=${trackId}&redirect=true`);
                 const data = await res.json();
                 if (data.url) {
                   streamCacheRef.current.set(nextTrack.id, data.url);
@@ -1360,7 +1361,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode; tracks: Track
           : null;
         if (trackId) {
           try {
-            const res = await fetch(`/api/stream/youtube?v=${trackId}&redirect=true`);
+            const res = await fetch(`${getApiBaseUrl()}/api/stream/youtube?v=${trackId}&redirect=true`);
             const data = await res.json();
             if (data.url) audioSrc = data.url;
           } catch {}

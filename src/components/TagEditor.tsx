@@ -13,6 +13,7 @@ import { usePlayer } from "@/context/PlayerContext";
 import { getCachedTrack } from "@/lib/cache-utils";
 import type { Track } from "@/lib/data";
 import { Loader2, ImagePlus } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api-utils";
 
 interface TagEditorProps {
   open: boolean;
@@ -240,7 +241,7 @@ export function TagEditor({ open, onOpenChange, track }: TagEditorProps) {
           description: "File tags updated successfully.",
         });
       } else if (isCloud) {
-        const response = await fetch(`/api/rename-track/${track.id}`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/rename-track/${track.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

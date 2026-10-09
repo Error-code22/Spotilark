@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/utils";
 import { Music2, Trash2, MoreVertical, Edit, FolderPlus, Share2, Play, Pause, Upload, PlusCircle, Cloud, Monitor, Globe, Youtube, List, LayoutGrid, LayoutList, ListChecks, X, Mic, Tag, Download } from "lucide-react";
 import { TagEditor } from "@/components/TagEditor";
+import { MusicScanner } from "@/components/MusicScanner";
 import { ScrollArea } from "../ui/scroll-area";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
@@ -19,6 +20,7 @@ import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import type { Track } from "@/lib/data";
+import { getApiBaseUrl } from "@/lib/api-utils";
 
 export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {}) => {
   const { toast } = useToast();
@@ -45,6 +47,7 @@ export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {})
   const [showTagEditor, setShowTagEditor] = useState(false);
   const [tagEditorTrack, setTagEditorTrack] = useState<Track | null>(null);
   const [contextMenu, setContextMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
+  const [showMusicScanner, setShowMusicScanner] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('spotilark-view-mode', viewMode);
@@ -156,7 +159,7 @@ export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {})
 
       // Delete cloud tracks via API
       for (const trackId of cloudIds) {
-        const response = await fetch(`/api/delete-track/${trackId}`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/delete-track/${trackId}`, {
           method: 'DELETE',
         });
 
@@ -209,7 +212,7 @@ export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {})
     }
 
     try {
-      const response = await fetch(`/api/rename-track/${trackId}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/rename-track/${trackId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -574,11 +577,11 @@ export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {})
             </p>
             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-xs">
               <Button
-                onClick={() => router.push('/folders')}
+                onClick={() => setShowMusicScanner(true)}
                 className="rounded-full gap-2 font-bold py-6 text-base shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95"
               >
-                <Upload className="w-5 h-5" />
-                Upload Music
+                <FolderPlus className="w-5 h-5" />
+                Scan for Music
               </Button>
               <Button
                 variant="outline"
@@ -1064,6 +1067,11 @@ export const TrackList = ({ overrideTracks }: { overrideTracks?: Track[] } = {})
         open={showTagEditor}
         onOpenChange={setShowTagEditor}
         track={tagEditorTrack}
+      />
+
+      <MusicScanner
+        open={showMusicScanner}
+        onOpenChange={setShowMusicScanner}
       />
 
       <style jsx>{`

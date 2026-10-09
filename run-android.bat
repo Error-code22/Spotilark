@@ -5,6 +5,11 @@ echo    SPOTILARK ANDROID BUILD
 echo ==========================================
 echo.
 
+:: Set environment
+set JAVA_HOME=C:\Program Files\Microsoft\jdk-21.0.11.10-hotspot
+set ANDROID_HOME=C:\android-sdk
+set PATH=%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%PATH%
+
 :: Kill any running Node.js processes
 echo [0/5] Stopping any running dev servers...
 taskkill /F /IM node.exe >nul 2>&1
@@ -14,7 +19,7 @@ timeout /t 2 >nul
 echo [1/5] Cleaning build cache...
 if exist ".next" rmdir /S /Q ".next" 2>nul
 
-:: 2. Temporarily hide API folder
+:: Temporarily hide API folder
 echo [2/5] Preparing build...
 if exist "src\app\api" (
     echo       Hiding API folder for static export...
@@ -26,19 +31,17 @@ if exist "src\app\api" (
     )
 )
 
-:: 3. Build Next.js for static export
+:: Build Next.js for static export
 echo [3/5] Building Web App (Static Export)...
 set NEXT_PUBLIC_ENV=export
 call npm run build
 if %ERRORLEVEL% NEQ 0 (
     echo       [!] Web Build failed!
     goto :restore
-    pause
-    exit /b 1
 )
 
-:restore
 :: Restore API folder
+:restore
 if exist "src\app\_api_tmp" (
     echo       Restoring API folder...
     ren "src\app\_api_tmp" "api"
@@ -53,7 +56,7 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-:: 4. Sync to Android
+:: Sync to Android
 echo [4/5] Syncing to Android...
 call npx cap sync android
 if %ERRORLEVEL% NEQ 0 (
@@ -62,29 +65,9 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-:: 5. Build APK
-echo [5/5] Building Android APK...
-:: Try to find gradle
-set GRADLE_CMD=
-if exist "C:\gradle\bin\gradle.bat" (
-    set GRADLE_CMD=C:\gradle\bin\gradle.bat
-) else if exist "C:\gradle-9.1.0\bin\gradle.bat" (
-    set GRADLE_CMD=C:\gradle-9.1.0\bin\gradle.bat
-) else if exist "%USERPROFILE%\.gradle\wrapper\dists\gradle*\bin\gradle.bat" (
-    for /d %%i in ("%USERPROFILE%\.gradle\wrapper\dists\gradle*") do set GRADLE_CMD=%%i\bin\gradle.bat
-) else (
-    echo [!] Gradle not found. Trying gradlew...
-    if exist "android\gradlew.bat" (
-        set GRADLE_CMD=android\gradlew.bat
-    ) else (
-        echo [!] No Gradle found. Install Gradle or use Android Studio.
-        pause
-        exit /b 1
-    )
-)
-echo       Using: %GRADLE_CMD%
-set JAVA_HOME=D:\Android studio\jbr
-call %GRADLE_CMD% assembleDebug -p android --no-daemon
+:: Build Release APK using gradlew (downloads correct Gradle version automatically)
+echo [5/5] Building Android Release APK...
+call android\gradlew.bat assembleRelease -p android --no-daemon
 if %ERRORLEVEL% NEQ 0 (
     echo [!] Android Build failed!
     pause
@@ -95,6 +78,6 @@ echo.
 echo ==========================================
 echo    BUILD COMPLETE!
 echo ==========================================
-echo APK: android\app\build\outputs\apk\debug\app-debug.apk
+echo APK: android\app\build\outputs\apk\release\app-release.apk
 echo.
 pause

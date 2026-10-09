@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 const menuItems = [
   { icon: Home, label: "Home", href: "/" },
@@ -33,10 +34,6 @@ const menuItems = [
   { icon: User, label: "Artists", href: "/artist" },
   { icon: Music, label: "Albums", href: "/albums" },
   { icon: ChartBarIncreasing, label: "Lyrics", href: "/lyrics" },
-  { icon: Search, label: "Search", href: "/search" },
-  { icon: Mails, label: "Messages", href: "/messages" },
-  { icon: Settings, label: "Settings", href: "/settings" },
-  { icon: UserRound, label: "Profile", href: "/profile" },
 ];
 
 export const SpotilarkLayout = ({
@@ -84,22 +81,12 @@ export const SpotilarkLayout = ({
     };
   }, [supabase.auth]);
 
-  // Render a minimal UI on the server to prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div className="flex h-screen bg-background text-foreground font-sans overflow-hidden">
-        <div className="hidden md:flex flex-col w-64 bg-card border-r border-border">
-          <div className="h-16 border-b border-border"></div>
-          <div className="flex-1 overflow-y-auto"></div>
-        </div>
-        <div className="flex-1 flex flex-col">
-          <div className="h-16 border-b border-border bg-card"></div>
-          <div className="flex-1 overflow-y-auto"></div>
-          <div className="h-24 border-t border-border bg-card"></div>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    try {
+      StatusBar.setStyle({ style: theme === 'dark' ? Style.Dark : Style.Light });
+      StatusBar.setBackgroundColor({ color: theme === 'dark' ? '#000000' : '#ffffff' });
+    } catch {}
+  }, [theme]);
 
   return (
     <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-background overflow-hidden font-sans selection:bg-primary/20">
@@ -147,6 +134,15 @@ export const SpotilarkLayout = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-10 w-10 hover:bg-primary/5 active:scale-90 transition-all text-muted-foreground"
+            onClick={() => router.push('/search')}
+          >
+            <Search className="h-5 w-5" />
+          </Button>
+
           <Button
             variant="ghost"
             size="icon"

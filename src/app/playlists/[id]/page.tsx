@@ -1,6 +1,8 @@
 import PlaylistDetailsWrapper from "./PlaylistDetailsWrapper";
 
-export const dynamic = 'force-dynamic';
+export function generateStaticParams() {
+    return [{ id: 'placeholder' }];
+}
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
     return <PlaylistDetailsWrapper />;

@@ -2,9 +2,10 @@ import { SpotilarkLayout } from '@/components/spotilark-layout';
 import { Suspense } from 'react';
 import FolderContentClient from './FolderContentClient';
 
-export const dynamic = 'force-dynamic';
+export function generateStaticParams() {
+    return [{ sourceName: 'placeholder' }];
+}
 
-// Server component that receives the params
 export default async function FolderContentPage({ params }: { params: Promise<{ sourceName: string }> }) {
   const resolvedParams = await params;
   const { sourceName } = resolvedParams;

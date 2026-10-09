@@ -11,6 +11,7 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { YouTubeAuth } from "@/components/YouTubeAuth";
 import { ImportDialog } from "@/components/ImportDialog";
+import { getApiBaseUrl } from "@/lib/api-utils";
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,7 +90,7 @@ export default function SearchPage() {
       setSearchError(null);
       saveToHistory(searchQuery);
       try {
-        const res = await fetch(`/api/search/remote?q=${encodeURIComponent(searchQuery)}`);
+        const res = await fetch(`${getApiBaseUrl()}/api/search/remote?q=${encodeURIComponent(searchQuery)}`);
         if (res.ok) {
           const data = await res.json();
           setRemoteResults(data);

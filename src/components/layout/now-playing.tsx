@@ -98,6 +98,7 @@ export const NowPlaying = () => {
   const [isSelectingLeftTrack, setIsSelectingLeftTrack] = useState(false);
   const [isDevicesOpen, setIsDevicesOpen] = useState(false);
   const playerRef = useRef<HTMLDivElement>(null);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
 
   const toggleQueue = () => {
     setIsQueueOpen(!isQueueOpen);
@@ -186,6 +187,17 @@ export const NowPlaying = () => {
 
   const toggleSecondaryMenu = () => setIsSecondaryMenuOpen(!isSecondaryMenuOpen);
 
+  useEffect(() => {
+    if (!isSettingsMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target as Node)) {
+        setIsSettingsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSettingsMenuOpen]);
+
   return (
     <AnimatePresence>
       {isNowPlayingOpen && (
@@ -230,7 +242,7 @@ export const NowPlaying = () => {
               <ChevronLeft className="h-6 w-6" />
             </Button>
           </div>
-          <div className="absolute top-4 right-4 flex gap-2 z-30">
+          <div className="absolute top-4 right-4 flex gap-2 z-30" ref={settingsMenuRef}>
             <Button variant="ghost" size="icon" onClick={toggleSettingsMenu} className="rounded-full hover:bg-white/10">
               <MoreVertical className="h-6 w-6" />
             </Button>
